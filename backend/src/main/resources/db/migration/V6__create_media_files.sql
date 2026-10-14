@@ -1,0 +1,8 @@
+CREATE TABLE media_files (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(64) NOT NULL UNIQUE,
+    original_name VARCHAR(200) NOT NULL,
+    content_type VARCHAR(32) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

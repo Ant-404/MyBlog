@@ -1,0 +1,17 @@
+# Local credentials and generated files
+.env
+.env.*
+!.env.example
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+docs/screenshots/
+backend/target/
+backend/logs/
+uploads/
+backend/uploads/
+.idea/
+.vscode/
+*.log
+Thumbs.db

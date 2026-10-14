@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:myblog;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    baseline-on-migrate: false
+blog:
+  media:
+    directory: target/test-uploads
+  admin:
+    username: test-admin
+    password: Test-Only-Password-2026
+    display-name: 憨Ant
