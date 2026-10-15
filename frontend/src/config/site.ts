@@ -7,8 +7,9 @@ export const site = {
   description: '这里是憨Ant的个人博客，欢迎来看看。',
   nav: [
     { label: '首页', path: '/' },
-    { label: '归档', path: '/archives' },
-    { label: '分类', path: '/categories' },
+    { label: '文章', path: '/categories' },
+    { label: '项目', path: '/projects' },
+    { label: '留言墙', path: '/guestbook' },
     { label: '追番', path: '/anime' },
     { label: '友链', path: '/friends' },
     { label: '关于', path: '/about' },

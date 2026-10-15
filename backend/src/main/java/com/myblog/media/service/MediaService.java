@@ -95,7 +95,7 @@ public class MediaService {
   public void delete(long id) throws IOException {
     String filename = repository.filename(id);
     if (repository.used("/api/v1/media/" + filename))
-      throw new ConflictException("图片正在被文章使用，请先移除引用");
+      throw new ConflictException("图片正在被内容使用，请先移除引用");
     Files.deleteIfExists(directory.resolve(filename));
     repository.delete(id);
   }

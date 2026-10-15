@@ -12,12 +12,17 @@ public class CommentService {
   private final CommentRepository repository;
   private final SiteSettingsService settings;
   private final CommentRateLimiter limiter;
+  private final com.myblog.member.service.MemberService members;
 
   public CommentService(
-      CommentRepository repository, SiteSettingsService settings, CommentRateLimiter limiter) {
+      CommentRepository repository,
+      SiteSettingsService settings,
+      CommentRateLimiter limiter,
+      com.myblog.member.service.MemberService members) {
     this.repository = repository;
     this.settings = settings;
     this.limiter = limiter;
+    this.members = members;
   }
 
   public PageResponse<CommentResponse> list(String slug, int page) {
@@ -25,13 +30,19 @@ public class CommentService {
     return new PageResponse<>(repository.list(id, page), repository.count(id), page, 20);
   }
 
-  public void submit(String slug, CommentWriteRequest input, String address) {
+  public void submit(
+      String slug,
+      CommentWriteRequest input,
+      String address,
+      org.springframework.security.core.Authentication authentication) {
+    var member = members.commenter(authentication);
     long id = repository.publicPostId(slug);
     if (!settings.get().commentsEnabled()) throw new InvalidInputException("评论暂时关闭");
     if (input.website() != null && !input.website().isBlank())
       return; // Honeypot: bots get the same acknowledgement.
     limiter.check(address);
-    repository.create(id, input);
+    limiter.check("member:" + member.id());
+    repository.create(id, input, member.id(), member.nickname());
   }
 
   public PageResponse<AdminCommentResponse> adminList(String status, int page) {
@@ -39,8 +50,10 @@ public class CommentService {
         repository.adminList(status, page), repository.adminCount(status), page, 20);
   }
 
+  @org.springframework.transaction.annotation.Transactional
   public void state(long id, CommentStateRequest input) {
     if (repository.state(id, input) != 1) throw new ConflictException("评论已被修改或删除，请刷新");
+    repository.notifyReply(id, input.status());
   }
 
   public void delete(long id, int version) {

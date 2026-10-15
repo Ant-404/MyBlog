@@ -11,6 +11,9 @@ import {
   Volume2,
   VolumeX,
   X,
+  Repeat,
+  Repeat1,
+  Shuffle,
 } from 'lucide-react'
 import { musicApi } from '../../api/music'
 import type { MusicTrack } from '../../types/music'
@@ -18,6 +21,8 @@ import { useAsyncData } from '../../hooks/useAsyncData'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
 
 const volumeValues = Array.from({ length: 101 }, (_, index) => String(index))
+const playModes = ['list', 'one', 'shuffle'] as const
+const modeLabels = { list: '列表循环', one: '单曲循环', shuffle: '随机播放' }
 function time(value: number) {
   const seconds = Number.isFinite(value) ? Math.floor(value) : 0
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
@@ -27,17 +32,81 @@ export default function MusicPlayer() {
   const { data, loading, error: loadError, refresh } = useAsyncData(musicApi.publicSettings)
   const [expanded, setExpanded] = useState(false)
   const [showList, setShowList] = useState(false)
-  const [selectedId, setSelectedId] = useState<number>()
+  const [selectedId, setSelectedId] = useState<number | undefined>(() => {
+    try {
+      const id = Number(localStorage.getItem('myblog-last-track'))
+      return id > 0 ? id : undefined
+    } catch {
+      return undefined
+    }
+  })
   const [playing, setPlaying] = useState(false)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState('')
   const [volume, setVolume] = useStoredPreference('myblog-volume', '65', volumeValues)
+  const [playMode, setPlayMode] = useStoredPreference('myblog-play-mode', 'list', playModes)
   const audio = useRef<HTMLAudioElement>(null)
   const wantsPlay = useRef(false)
   const requestSequence = useRef(0)
   const track = data?.tracks.find((item) => item.id === selectedId) || data?.tracks[0]
   const index = data?.tracks.findIndex((item) => item.id === track?.id) ?? -1
+  useEffect(() => {
+    if (!track) return
+    try {
+      localStorage.setItem('myblog-last-track', String(track.id))
+    } catch {
+      /* Optional preference. */
+    }
+  }, [track?.id])
+  useEffect(() => {
+    if (
+      !('mediaSession' in navigator) ||
+      typeof MediaMetadata === 'undefined' ||
+      !track ||
+      !data?.enabled
+    )
+      return
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artist || '',
+      album: data.name,
+    })
+    const actions: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ['play', () => void play()],
+      ['pause', pause],
+      ['previoustrack', () => skip(-1)],
+      ['nexttrack', () => skip(1)],
+      [
+        'seekto',
+        (event) => {
+          if (audio.current && event.seekTime !== undefined)
+            audio.current.currentTime = event.seekTime
+        },
+      ],
+    ]
+    for (const [action, handler] of actions) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler)
+      } catch {
+        /* Platform support varies. */
+      }
+    }
+    return () => {
+      for (const [action] of actions) {
+        try {
+          navigator.mediaSession.setActionHandler(action, null)
+        } catch {
+          /* Optional platform action. */
+        }
+      }
+      navigator.mediaSession.metadata = null
+    }
+  }, [track, data?.name, data?.enabled, playMode])
+  useEffect(() => {
+    if ('mediaSession' in navigator)
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+  }, [playing])
 
   useEffect(() => {
     window.addEventListener('music-settings-updated', refresh)
@@ -92,8 +161,13 @@ export default function MusicPlayer() {
   }
   function skip(delta: number, start = wantsPlay.current) {
     const tracks = data?.tracks || []
-    if (tracks.length)
-      select(tracks[(Math.max(0, index) + delta + tracks.length) % tracks.length], start)
+    if (!tracks.length) return
+    const choices = tracks.filter((item) => item.id !== track?.id)
+    const next =
+      playMode === 'shuffle' && choices.length
+        ? choices[Math.floor(Math.random() * choices.length)]
+        : tracks[(Math.max(0, index) + delta + tracks.length) % tracks.length]
+    select(next, start)
   }
   if (data && !data.enabled) return null
   return (
@@ -108,7 +182,12 @@ export default function MusicPlayer() {
         onLoadedMetadata={() =>
           setDuration(Number.isFinite(audio.current?.duration) ? audio.current!.duration : 0)
         }
-        onEnded={() => skip(1, true)}
+        onEnded={() => {
+          if (playMode === 'one' || data?.tracks.length === 1) {
+            if (audio.current) audio.current.currentTime = 0
+            void play()
+          } else skip(1, true)
+        }}
         onError={() => {
           wantsPlay.current = false
           setPlaying(false)
@@ -174,6 +253,22 @@ export default function MusicPlayer() {
                 </div>
               </div>
               <div className="music-controls">
+                <button
+                  className="icon-button"
+                  aria-label={`播放模式：${modeLabels[playMode]}`}
+                  title={modeLabels[playMode]}
+                  onClick={() =>
+                    setPlayMode(playModes[(playModes.indexOf(playMode) + 1) % playModes.length])
+                  }
+                >
+                  {playMode === 'one' ? (
+                    <Repeat1 size={18} />
+                  ) : playMode === 'shuffle' ? (
+                    <Shuffle size={18} />
+                  ) : (
+                    <Repeat size={18} />
+                  )}
+                </button>
                 <button className="icon-button" aria-label="上一首" onClick={() => skip(-1)}>
                   <SkipBack size={19} />
                 </button>

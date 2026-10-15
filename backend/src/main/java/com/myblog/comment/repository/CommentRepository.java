@@ -26,12 +26,21 @@ public class CommentRepository {
         .orElseThrow(() -> new ResourceNotFoundException("文章不存在"));
   }
 
-  public void create(long postId, CommentWriteRequest input) {
+  public void create(long postId, CommentWriteRequest input, long memberId, String nickname) {
+    if (input.parentId() != null
+        && jdbc.queryForObject(
+                "SELECT COUNT(*) FROM comments WHERE id=? AND post_id=? AND status='APPROVED'",
+                Long.class,
+                input.parentId(),
+                postId)
+            != 1) throw new com.myblog.common.exception.InvalidInputException("回复的评论已不可用，请刷新后重试");
     jdbc.update(
-        "INSERT INTO comments(post_id,author,content) VALUES (?,?,?)",
+        "INSERT INTO comments(post_id,author,content,member_id,parent_id) VALUES (?,?,?,?,?)",
         postId,
-        input.author().trim(),
-        input.content().trim());
+        nickname,
+        input.content().trim(),
+        memberId,
+        input.parentId());
   }
 
   public long count(long id) {
@@ -41,14 +50,25 @@ public class CommentRepository {
 
   public List<CommentResponse> list(long id, int page) {
     return jdbc.query(
-        "SELECT * FROM comments WHERE post_id=? AND status='APPROVED' ORDER BY id DESC LIMIT 20"
-            + " OFFSET ?",
+        "SELECT c.*,m.nickname,m.avatar,parent.member_id AS parent_member,parent.author AS"
+            + " parent_author,pm.nickname AS parent_nickname FROM comments c LEFT JOIN members m ON"
+            + " m.id=c.member_id LEFT JOIN comments parent ON parent.id=c.parent_id AND"
+            + " parent.status='APPROVED' LEFT JOIN members pm ON pm.id=parent.member_id WHERE"
+            + " c.post_id=? AND c.status='APPROVED' ORDER BY c.id DESC LIMIT 20 OFFSET ?",
         (rs, n) ->
             new CommentResponse(
                 rs.getLong("id"),
-                rs.getString("author"),
+                rs.getString("nickname") == null
+                    ? rs.getString("author")
+                    : rs.getString("nickname"),
                 rs.getString("content"),
-                rs.getString("created_at")),
+                rs.getString("created_at"),
+                rs.getObject("member_id", Long.class),
+                rs.getString("avatar"),
+                rs.getObject("parent_id", Long.class),
+                rs.getString("parent_nickname") == null
+                    ? rs.getString("parent_author")
+                    : rs.getString("parent_nickname")),
         id,
         (page - 1) * 20);
   }
@@ -83,6 +103,18 @@ public class CommentRepository {
         input.status(),
         id,
         input.version());
+  }
+
+  public void notifyReply(long id, String status) {
+    if (!status.equals("APPROVED")) return;
+    jdbc.update(
+        "INSERT INTO member_notifications(member_id,comment_id,message) SELECT"
+            + " parent.member_id,c.id,'你的评论收到了一条回复' FROM comments c JOIN comments parent ON"
+            + " parent.id=c.parent_id JOIN members m ON m.id=parent.member_id WHERE c.id=? AND"
+            + " parent.status='APPROVED' AND parent.member_id<>c.member_id AND m.status<>'DELETED'"
+            + " AND NOT EXISTS (SELECT 1 FROM member_notifications n WHERE"
+            + " n.member_id=parent.member_id AND n.comment_id=c.id)",
+        id);
   }
 
   public int delete(long id, int version) {

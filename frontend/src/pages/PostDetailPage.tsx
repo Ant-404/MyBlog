@@ -40,12 +40,8 @@ export default function PostDetailPage() {
             </span>
             <PostReadCount slug={slug} />
           </div>
-          <img
-            className="article-cover"
-            src={post.cover || '/images/landscape.svg'}
-            alt="文章封面"
-          />
-          <ArticleReadingTools html={html} />
+          <ArticleReadingTools key={`reading:${slug}`} html={html} />
+          {post.cover && <img className="article-cover" src={post.cover} alt="文章封面" />}
           <div id="article-content" className="prose" dangerouslySetInnerHTML={{ __html: html }} />
           <ArticleEnhancements key={`enhancements:${slug}`} html={html} />
           <div className="tag-cloud">

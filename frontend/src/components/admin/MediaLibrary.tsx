@@ -16,15 +16,23 @@ export default function MediaLibrary({
   const { expire } = useOutletContext<{ expire: () => void }>()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [success, setSuccess] = useState('')
+  const [uploadingName, setUploadingName] = useState('')
+  const [uploadPhase, setUploadPhase] = useState('')
   useEffect(() => {
     if (errorStatus === 401) expire()
   }, [errorStatus, expire])
-  async function action(work: () => Promise<unknown>) {
+  async function action<T>(
+    work: () => Promise<T>,
+    successMessage: string | ((result: T) => string) = '',
+  ) {
     if (busy || disabled) return
     setBusy(true)
     setMessage('')
+    setSuccess('')
     try {
-      await work()
+      const result = await work()
+      setSuccess(typeof successMessage === 'function' ? successMessage(result) : successMessage)
       refresh()
     } catch (cause) {
       if (cause instanceof HttpError && cause.status === 401) expire()
@@ -36,21 +44,45 @@ export default function MediaLibrary({
   return (
     <div className="media-library">
       <label className="media-upload">
-        上传 PNG / JPEG（最多 5MB）
+        上传图片（最多 5MB，其他格式自动转换）
         <input
           aria-label="上传图片"
           type="file"
-          accept="image/png,image/jpeg"
+          accept="image/*,.avif,.heic,.heif"
           disabled={busy || disabled}
           onChange={(event) => {
-            const file = event.target.files?.[0]
-            event.target.value = ''
-            if (file) void action(() => mediaApi.upload(file))
+            const input = event.currentTarget
+            const file = input.files?.[0]
+            if (!file) return
+            setUploadingName(file.name)
+            setUploadPhase('正在准备')
+            void action(
+              () =>
+                mediaApi.upload(file, (phase) =>
+                  setUploadPhase(phase === 'converting' ? '正在转换图片格式' : '正在上传'),
+                ),
+              (uploaded) =>
+                `已上传“${uploaded.originalName}”${uploaded.originalName !== file.name ? '（已自动转换或修正格式）' : ''}，图片已加入下方列表。${onSelect ? '请点击对应图片的“选择图片”，再保存当前页面。' : ''}`,
+            ).finally(() => {
+              input.value = ''
+              setUploadingName('')
+            })
           }}
         />
       </label>
+      <p className="muted">
+        PNG/JPEG 直接上传；浏览器可读取的 WebP、GIF、BMP、AVIF 等自动转为
+        PNG，保留透明背景。动图保存为静态图，HEIC 等能否转换取决于浏览器。
+      </p>
       <p className="muted">最近 200 张图片。正在被文章或站点设置引用的图片不能删除。</p>
-      {busy && <p role="status">正在处理…</p>}
+      {busy && (
+        <p role="status">{uploadingName ? `${uploadPhase}“${uploadingName}”…` : '正在处理…'}</p>
+      )}
+      {success && (
+        <p className="form-success" role="status">
+          {success}
+        </p>
+      )}
       {message && (
         <p className="form-error" role="alert">
           {message}

@@ -2,12 +2,28 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, CalendarDays, Clock3, Pin } from 'lucide-react'
 import type { PostSummary } from '../../types/blog'
 import { formatDate } from '../../utils/date'
+import { useState } from 'react'
 
 export default function PostCard({ post }: { post: PostSummary }) {
+  const [broken, setBroken] = useState(false)
   return (
     <article className="card post-card">
-      <Link to={`/posts/${post.slug}`} className="post-cover" tabIndex={-1} aria-hidden="true">
-        <img src={post.cover || '/images/landscape.svg'} alt="" loading="lazy" />
+      <Link
+        to={`/posts/${post.slug}`}
+        className={`post-cover ${!post.cover || broken ? 'post-cover-fallback' : ''}`}
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        {post.cover && !broken ? (
+          <img src={post.cover} alt="" loading="lazy" onError={() => setBroken(true)} />
+        ) : (
+          <>
+            <span>
+              {post.category} / {post.publishedAt.slice(0, 4)}
+            </span>
+            <strong>{post.title}</strong>
+          </>
+        )}
         {post.pinned && (
           <span className="pin-badge">
             <Pin size={12} />

@@ -14,6 +14,9 @@ import {
   BarChart3,
   Tv,
   Music2,
+  BriefcaseBusiness,
+  LibraryBig,
+  MessageCircle,
 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import { HttpError } from '../api/http'
@@ -81,9 +84,25 @@ export default function AdminLayout() {
             <FileText size={18} />
             文章管理
           </NavLink>
+          <NavLink to="/admin/members">
+            <MessageSquare size={18} />
+            用户与社区
+          </NavLink>
           <NavLink to="/admin/media">
             <Images size={18} />
             图片管理
+          </NavLink>
+          <NavLink to="/admin/projects">
+            <BriefcaseBusiness size={18} />
+            项目展示
+          </NavLink>
+          <NavLink to="/admin/series">
+            <LibraryBig size={18} />
+            文章专题
+          </NavLink>
+          <NavLink to="/admin/moments">
+            <MessageCircle size={18} />
+            说说管理
           </NavLink>
           <NavLink to="/admin/taxonomy">
             <Tags size={18} />
@@ -134,6 +153,9 @@ export default function AdminLayout() {
                 statistics: '阅读统计',
                 anime: '追番管理',
                 music: '音乐管理',
+                projects: '项目展示',
+                series: '文章专题',
+                moments: '说说管理',
               }[location.pathname.split('/')[2]] || '工作台'}
             </small>
           </span>

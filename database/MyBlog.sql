@@ -13,6 +13,8 @@
 -- [V7] 分类/标签/友链版本与站点设置。
 -- [V8] 评论与阅读统计。
 -- [V9 | 2026-10-15] 追番记录、QQ 公开歌单配置与歌曲元数据。
+-- [V10 | 2026-10-15] 项目展示、文章专题、说说及有序文章/图片关联；不插入个人示例内容。
+-- [V11 | 2026-10-15] 邮箱验证会员、一次性令牌、评论账号与回复、通知、举报和留言墙。
 -- [整理 | 2026-10-15] 合并为唯一文件，移除 Flyway，改为手动执行。
 
 -- @mysql-only-begin
@@ -26,6 +28,26 @@ SET @myblog_new_install = NOT EXISTS (
 -- @mysql-only-end
 
 -- 一、最新完整表结构。已有表与数据保持不变。
+CREATE TABLE IF NOT EXISTS showcase_entries (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    section VARCHAR(16) NOT NULL,
+    title VARCHAR(200) NOT NULL DEFAULT '',
+    summary VARCHAR(500) NOT NULL DEFAULT '',
+    content LONGTEXT NOT NULL,
+    cover VARCHAR(1000) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT '',
+    technologies VARCHAR(2000) NOT NULL DEFAULT '[]',
+    source_url VARCHAR(1000) NOT NULL DEFAULT '',
+    demo_url VARCHAR(1000) NOT NULL DEFAULT '',
+    published_at DATE NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    visible BOOLEAN NOT NULL DEFAULT FALSE,
+    version INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_showcase_section CHECK (section IN ('projects','series','moments')),
+    INDEX idx_showcase_public (section, visible, sort_order, published_at, id)
+);
 CREATE TABLE IF NOT EXISTS categories (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(64) NOT NULL UNIQUE,
@@ -67,6 +89,21 @@ CREATE TABLE IF NOT EXISTS post_tags (
     CONSTRAINT fk_post_tags_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
     CONSTRAINT fk_post_tags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
     INDEX idx_post_tags_tag (tag_id, post_id)
+);
+CREATE TABLE IF NOT EXISTS showcase_posts (
+    entry_id BIGINT NOT NULL,
+    post_id BIGINT NOT NULL,
+    sort_order INT NOT NULL,
+    PRIMARY KEY (entry_id, post_id),
+    CONSTRAINT fk_showcase_posts_entry FOREIGN KEY (entry_id) REFERENCES showcase_entries(id) ON DELETE CASCADE,
+    CONSTRAINT fk_showcase_posts_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS showcase_images (
+    entry_id BIGINT NOT NULL,
+    sort_order INT NOT NULL,
+    url VARCHAR(1000) NOT NULL,
+    PRIMARY KEY (entry_id, sort_order),
+    CONSTRAINT fk_showcase_images_entry FOREIGN KEY (entry_id) REFERENCES showcase_entries(id) ON DELETE CASCADE
 );
 CREATE TABLE IF NOT EXISTS friends (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -113,6 +150,27 @@ CREATE TABLE IF NOT EXISTS site_settings (
 );
 
 
+CREATE TABLE IF NOT EXISTS members (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(254) UNIQUE,
+    password_hash VARCHAR(100) NOT NULL,
+    nickname VARCHAR(64) NOT NULL,
+    avatar VARCHAR(1000) NOT NULL DEFAULT '',
+    bio VARCHAR(300) NOT NULL DEFAULT '',
+    status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
+    session_version INT NOT NULL DEFAULT 0,
+    version INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_members_status CHECK (status IN ('ACTIVE','MUTED','BANNED','DELETED'))
+);
+CREATE TABLE IF NOT EXISTS member_tokens (
+    token_hash VARCHAR(64) PRIMARY KEY,
+    email VARCHAR(254) NOT NULL,
+    purpose VARCHAR(16) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_member_tokens_email (email,purpose,created_at)
+);
 CREATE TABLE IF NOT EXISTS comments (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     post_id BIGINT NOT NULL,
@@ -121,10 +179,48 @@ CREATE TABLE IF NOT EXISTS comments (
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
     version INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    member_id BIGINT,
+    parent_id BIGINT,
+    CONSTRAINT fk_comments_member FOREIGN KEY (member_id) REFERENCES members(id),
     CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
     CONSTRAINT chk_comments_status CHECK (status IN ('PENDING','APPROVED','REJECTED')),
     INDEX idx_comments_public (post_id,status,id),
+    INDEX idx_comments_member (member_id,id),
     INDEX idx_comments_moderation (status,id)
+);
+CREATE TABLE IF NOT EXISTS member_notifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    member_id BIGINT NOT NULL,
+    comment_id BIGINT NOT NULL,
+    message VARCHAR(300) NOT NULL,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notice_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notice_comment FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+    UNIQUE (member_id,comment_id),
+    INDEX idx_member_notifications (member_id,id)
+);
+CREATE TABLE IF NOT EXISTS comment_reports (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    member_id BIGINT NOT NULL,
+    comment_id BIGINT NOT NULL,
+    reason VARCHAR(500) NOT NULL,
+    resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_report_member FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+    CONSTRAINT fk_report_comment FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+    UNIQUE (member_id,comment_id)
+);
+CREATE TABLE IF NOT EXISTS guestbook_entries (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    member_id BIGINT NOT NULL,
+    content VARCHAR(500) NOT NULL,
+    color VARCHAR(16) NOT NULL DEFAULT 'lavender',
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    version INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_guestbook_member FOREIGN KEY (member_id) REFERENCES members(id),
+    CONSTRAINT chk_guestbook_status CHECK (status IN ('PENDING','APPROVED','REJECTED'))
 );
 CREATE TABLE IF NOT EXISTS post_views (
     post_id BIGINT NOT NULL,
@@ -182,6 +278,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'posts' AND column_name = 'version') THEN
         ALTER TABLE posts ADD COLUMN version INT NOT NULL DEFAULT 0;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'comments' AND column_name = 'member_id') THEN
+        ALTER TABLE comments ADD COLUMN member_id BIGINT NULL;
+        ALTER TABLE comments ADD CONSTRAINT fk_comments_member FOREIGN KEY (member_id) REFERENCES members(id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'comments' AND column_name = 'parent_id') THEN
+        ALTER TABLE comments ADD COLUMN parent_id BIGINT NULL;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'categories' AND column_name = 'version') THEN
         ALTER TABLE categories ADD COLUMN version INT NOT NULL DEFAULT 0;
     END IF;
@@ -202,6 +305,9 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'comments' AND index_name = 'idx_comments_public') THEN
         CREATE INDEX idx_comments_public ON comments(post_id,status,id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'comments' AND index_name = 'idx_comments_member') THEN
+        CREATE INDEX idx_comments_member ON comments(member_id,id);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'comments' AND index_name = 'idx_comments_moderation') THEN
         CREATE INDEX idx_comments_moderation ON comments(status,id);

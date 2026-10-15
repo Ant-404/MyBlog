@@ -7,7 +7,7 @@
   --bg: hsl(var(--hue) 24% 96%);
   --card: #fff;
   --text: #363342;
-  --muted: #77717f;
+  --muted: #686271;
   --accent-lightness: 46%;
   --accent: hsl(var(--hue) 32% var(--accent-lightness));
   --accent-hover: hsl(var(--hue) 36% calc(var(--accent-lightness) - 8%));

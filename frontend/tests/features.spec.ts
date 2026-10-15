@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { login, adminMutation, createPost, deletePost } from './helpers/admin'
+import { loginMember } from './helpers/member'
 
 test('upload select cover/body and protect referenced images', async ({ page }) => {
   await login(page)
@@ -48,7 +49,7 @@ test('upload select cover/body and protect referenced images', async ({ page }) 
       .filter({ hasText: 'feature-test.png' })
       .getByRole('button', { name: '删除图片' })
       .click()
-    await expect(page.getByRole('alert')).toContainText('正在被文章使用')
+    await expect(page.getByRole('alert')).toContainText('正在被内容使用')
   } finally {
     if (postId) await deletePost(page, postId)
     expect((await adminMutation(page, `/admin/media/${file.id}`, 'DELETE')).status()).toBe(200)
@@ -164,13 +165,15 @@ test('reading tools comments moderation feeds and statistics work together', asy
       .getByRole('link', { name: '第二节' })
       .click()
     await expect(page).toHaveURL(/#article-heading-2$/)
-    await page.getByLabel('昵称', { exact: true }).fill('FeatureComment')
+    await loginMember(page)
+    await page.reload()
     await page.getByLabel('评论内容').fill('<script>window.badComment=true</script>文字评论')
     await page.getByRole('button', { name: '提交评论', exact: true }).click()
     await expect(page.getByRole('status')).toContainText('审核通过后')
     expect(
       (await (await page.request.get(`/api/v1/posts/${post.slug}/comments`)).json()).data.total,
     ).toBe(0)
+    await login(page)
     await page.goto('/admin/comments')
     const row = page.locator('.comment-list article').filter({ hasText: 'FeatureComment' })
     await expect(row).toBeVisible()
@@ -179,7 +182,7 @@ test('reading tools comments moderation feeds and statistics work together', asy
     await page.goto(`/posts/${post.slug}`)
     await expect(page.locator('.comment-list')).toContainText('window.badComment=true')
     expect(await page.evaluate(() => 'badComment' in window)).toBe(false)
-    await page.getByLabel('评论内容').scrollIntoViewIfNeeded()
+    await page.locator('.post-comments').scrollIntoViewIfNeeded()
     await expect
       .poll(async () =>
         Number(

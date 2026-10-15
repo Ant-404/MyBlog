@@ -80,7 +80,16 @@ public class MediaRepository {
         || jdbc.queryForObject("SELECT COUNT(*) FROM anime_entries WHERE cover=?", Long.class, url)
             > 0
         || jdbc.queryForObject("SELECT COUNT(*) FROM music_tracks WHERE cover=?", Long.class, url)
-            > 0;
+            > 0
+        || jdbc.queryForObject(
+                "SELECT COUNT(*) FROM showcase_entries WHERE cover=? OR content LIKE ? ESCAPE '!'",
+                Long.class,
+                url,
+                literal)
+            > 0
+        || jdbc.queryForObject("SELECT COUNT(*) FROM showcase_images WHERE url=?", Long.class, url)
+            > 0
+        || jdbc.queryForObject("SELECT COUNT(*) FROM members WHERE avatar=?", Long.class, url) > 0;
   }
 
   public void delete(long id) {

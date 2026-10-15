@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import BlogLayout from '../layouts/BlogLayout'
 import ErrorPage from '../pages/ErrorPage'
 
@@ -11,6 +11,17 @@ const TagPage = lazy(() => import('../pages/TagPage'))
 const FriendPage = lazy(() => import('../pages/FriendPage'))
 const AboutPage = lazy(() => import('../pages/AboutPage'))
 const AnimePage = lazy(() => import('../pages/AnimePage'))
+const ProjectsPage = lazy(() => import('../pages/ProjectsPage'))
+const ProjectDetailPage = lazy(() => import('../pages/ProjectDetailPage'))
+const SeriesPage = lazy(() => import('../pages/SeriesPage'))
+const SeriesDetailPage = lazy(() => import('../pages/SeriesDetailPage'))
+const AccountPage = lazy(() => import('../pages/AccountPage'))
+const MemberProfilePage = lazy(() => import('../pages/MemberProfilePage'))
+const GuestbookPage = lazy(() => import('../pages/GuestbookPage'))
+const AdminMembersPage = lazy(() => import('../pages/admin/AdminMembersPage'))
+const AdminProjectsPage = lazy(() => import('../pages/admin/AdminProjectsPage'))
+const AdminSeriesPage = lazy(() => import('../pages/admin/AdminSeriesPage'))
+const AdminMomentsPage = lazy(() => import('../pages/admin/AdminMomentsPage'))
 const AdminAnimePage = lazy(() => import('../pages/admin/AdminAnimePage'))
 const AdminMusicPage = lazy(() => import('../pages/admin/AdminMusicPage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
@@ -53,9 +64,13 @@ export const router = createBrowserRouter([
       { path: 'friends', element: page(AdminFriendsPage) },
       { path: 'anime', element: page(AdminAnimePage) },
       { path: 'music', element: page(AdminMusicPage) },
+      { path: 'projects', element: page(AdminProjectsPage) },
+      { path: 'series', element: page(AdminSeriesPage) },
+      { path: 'moments', element: page(AdminMomentsPage) },
       { path: 'settings', element: page(AdminSettingsPage) },
       { path: 'comments', element: page(AdminCommentsPage) },
       { path: 'statistics', element: page(AdminStatisticsPage) },
+      { path: 'members', element: page(AdminMembersPage) },
       { path: '*', element: page(NotFoundPage) },
     ],
   },
@@ -71,6 +86,14 @@ export const router = createBrowserRouter([
       { path: '/friends', element: page(FriendPage) },
       { path: '/about', element: page(AboutPage) },
       { path: '/anime', element: page(AnimePage) },
+      { path: '/projects', element: page(ProjectsPage) },
+      { path: '/projects/:id', element: page(ProjectDetailPage) },
+      { path: '/series', element: page(SeriesPage) },
+      { path: '/series/:id', element: page(SeriesDetailPage) },
+      { path: '/moments', element: <Navigate to="/guestbook" replace /> },
+      { path: '/account', element: page(AccountPage) },
+      { path: '/people/:id', element: page(MemberProfilePage) },
+      { path: '/guestbook', element: page(GuestbookPage) },
       { path: '*', element: page(NotFoundPage) },
     ],
   },

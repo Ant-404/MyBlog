@@ -3,6 +3,7 @@ import { Check, Monitor, Moon, SlidersHorizontal, Sun } from 'lucide-react'
 import { useTheme } from '../../hooks/useTheme'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
 import { accentLightness, hueValues } from '../../utils/theme'
+import { weatherOptions } from './WeatherAtmosphere'
 
 const colors = ['violet', 'blue', 'green', 'rose', 'amber', 'custom'] as const
 const presetColors = ['violet', 'blue', 'green', 'rose', 'amber'] as const
@@ -16,6 +17,7 @@ const presetHues = {
 }
 const sizes = ['small', 'regular', 'large'] as const
 const banners = ['show', 'hide'] as const
+const switches = ['on', 'off'] as const
 const colorNames = ['藤紫', '晴蓝', '松绿', '蔷薇', '麦金']
 
 export default function AppearanceSettings() {
@@ -24,6 +26,9 @@ export default function AppearanceSettings() {
   const [hue, setHue] = useStoredPreference('myblog-hue', presetHues[color], hueValues)
   const [size, setSize] = useStoredPreference('myblog-reading-size', 'regular', sizes)
   const [banner, setBanner] = useStoredPreference('myblog-banner', 'show', banners)
+  const [motion, setMotion] = useStoredPreference('myblog-motion', 'on', switches)
+  const [, setFocus] = useStoredPreference('myblog-reading-focus', 'off', switches)
+  const [weather, setWeather] = useStoredPreference('myblog-weather', 'clear', weatherOptions)
   const panel = useRef<HTMLDetailsElement>(null)
   useEffect(() => {
     document.documentElement.dataset.color = color
@@ -31,7 +36,8 @@ export default function AppearanceSettings() {
     document.documentElement.style.setProperty('--accent-lightness', accentLightness(Number(hue)))
     document.documentElement.dataset.readingSize = size
     document.documentElement.dataset.banner = banner
-  }, [color, hue, size, banner])
+    document.documentElement.dataset.motion = motion
+  }, [color, hue, size, banner, motion])
   useEffect(() => {
     function close(event: PointerEvent | KeyboardEvent) {
       if (event instanceof KeyboardEvent) {
@@ -139,6 +145,48 @@ export default function AppearanceSettings() {
             onChange={(event) => setBanner(event.target.checked ? 'show' : 'hide')}
           />
         </label>
+        <label className="banner-setting">
+          <span>
+            动态效果<small>横幅切换、流动波浪与卡片入场</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={motion === 'on'}
+            onChange={(event) => setMotion(event.target.checked ? 'on' : 'off')}
+          />
+        </label>
+        <fieldset>
+          <legend>横幅天气氛围</legend>
+          <div className="setting-segments">
+            {weatherOptions.map((value, index) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={weather === value}
+                onClick={() => setWeather(value)}
+              >
+                {['晴天', '雨天', '飘雪', '微光'][index]}
+              </button>
+            ))}
+          </div>
+          <small className="muted">仅装饰效果，不读取位置或真实天气；关闭动态效果后隐藏。</small>
+        </fieldset>
+        <button
+          className="text-button appearance-reset"
+          type="button"
+          onClick={() => {
+            setMode('system')
+            setColor('violet')
+            setHue('275')
+            setSize('regular')
+            setBanner('show')
+            setMotion('on')
+            setFocus('off')
+            setWeather('clear')
+          }}
+        >
+          恢复默认外观
+        </button>
       </div>
     </details>
   )

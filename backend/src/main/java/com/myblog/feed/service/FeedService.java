@@ -1,6 +1,7 @@
 package com.myblog.feed.service;
 
 import com.myblog.post.repository.PostRepository;
+import com.myblog.showcase.repository.ShowcaseRepository;
 import com.myblog.site.service.SiteSettingsService;
 import java.io.StringWriter;
 import java.time.*;
@@ -12,10 +13,13 @@ import org.springframework.stereotype.Service;
 public class FeedService {
   private final PostRepository posts;
   private final SiteSettingsService settings;
+  private final ShowcaseRepository showcase;
 
-  public FeedService(PostRepository posts, SiteSettingsService settings) {
+  public FeedService(
+      PostRepository posts, SiteSettingsService settings, ShowcaseRepository showcase) {
     this.posts = posts;
     this.settings = settings;
+    this.showcase = showcase;
   }
 
   public String rss() throws XMLStreamException {
@@ -60,7 +64,18 @@ public class FeedService {
     xml.writeStartElement("urlset");
     xml.writeDefaultNamespace("http://www.sitemaps.org/schemas/sitemap/0.9");
     for (String path :
-        new String[] {"/", "/archives", "/categories", "/tags", "/anime", "/friends", "/about"}) {
+        new String[] {
+          "/",
+          "/archives",
+          "/categories",
+          "/tags",
+          "/anime",
+          "/friends",
+          "/about",
+          "/projects",
+          "/series",
+          "/guestbook"
+        }) {
       xml.writeStartElement("url");
       element(xml, "loc", site.publicUrl() + path);
       xml.writeEndElement();
@@ -68,6 +83,11 @@ public class FeedService {
     for (var post : posts.findArchives()) {
       xml.writeStartElement("url");
       element(xml, "loc", site.publicUrl() + "/posts/" + post.slug());
+      xml.writeEndElement();
+    }
+    for (String path : showcase.publicPaths()) {
+      xml.writeStartElement("url");
+      element(xml, "loc", site.publicUrl() + path);
       xml.writeEndElement();
     }
     xml.writeEndElement();

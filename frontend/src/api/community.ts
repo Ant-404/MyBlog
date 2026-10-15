@@ -6,11 +6,12 @@ export const communityApi = {
     demoMode
       ? Promise.resolve({ items: [], total: 0, page, size: 20 })
       : request(`/posts/${encodeURIComponent(slug)}/comments?page=${page}`),
-  submit: (slug: string, author: string, content: string, website: string) =>
+  submit: (slug: string, author: string, content: string, website: string, parentId?: number) =>
     mutate<void>(`/posts/${encodeURIComponent(slug)}/comments`, 'POST', {
       author,
       content,
       website,
+      parentId,
     }),
   recordView: (slug: string) =>
     demoMode

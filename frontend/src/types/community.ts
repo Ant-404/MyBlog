@@ -4,6 +4,10 @@ export interface Comment {
   author: string
   content: string
   createdAt: string
+  memberId?: number | null
+  avatar?: string | null
+  parentId?: number | null
+  replyTo?: string | null
 }
 export interface AdminComment extends Comment {
   slug: string

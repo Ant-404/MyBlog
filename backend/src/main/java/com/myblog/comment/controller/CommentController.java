@@ -29,8 +29,9 @@ public class CommentController {
   public ApiResponse<Void> submit(
       @PathVariable @Size(max = 160) String slug,
       @Valid @RequestBody CommentWriteRequest input,
-      HttpServletRequest request) {
-    service.submit(slug, input, request.getRemoteAddr());
+      HttpServletRequest request,
+      org.springframework.security.core.Authentication authentication) {
+    service.submit(slug, input, request.getRemoteAddr(), authentication);
     return ApiResponse.success(null);
   }
 

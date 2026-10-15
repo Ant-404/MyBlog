@@ -93,6 +93,8 @@
 
 元数据为 id、url、originalName、contentType、sizeBytes、createdAt。上传仅接收实际可解码的 PNG/JPEG，最多 5MB、2000 万像素；格式伪装返回 400，请求超过上传上限返回 413 FILE_TOO_LARGE。管理操作需 ADMIN 与 CSRF，公开读取仅接受随机生成的合法文件名。
 
+后台页面在上传前按真实文件头识别 PNG/JPEG；其他浏览器可解码的图片（如 WebP、GIF、BMP、AVIF）通过 Canvas 转成 PNG 后提交，保留透明通道，动图保存为静态图。文件头与扩展名不一致时修正文件名。原文件和转换结果均限制 5MB，转换图片最多 2000 万像素；HEIC/HEIF 等依赖浏览器解码能力，不保证支持。转换工具为 `frontend/src/utils/imageUpload.ts`，所有图片管理/选择入口共用，后端接口和数据库不变。
+
 ## 分类、标签、友链和设置
 
 | 方法 | 路径 | 说明 |
@@ -118,7 +120,7 @@
 | GET | /posts/{slug}/view | 阅读计数，data 为数字 |
 | POST | /posts/{slug}/view | 同一会话同一天同一文章去重；需 CSRF，可匿名 |
 | GET | /posts/{slug}/comments?page=N | 已通过评论，每页 20 条 |
-| POST | /posts/{slug}/comments | author、content、website，返回 202，默认待审核；需 CSRF，可匿名 |
+| POST | /posts/{slug}/comments | content、website、可选 parentId；返回 202，默认待审核；需已验证邮箱的用户会话及 CSRF，author 由服务端读取 |
 | GET | /admin/comments?status=PENDING&page=1 | 审核列表，每页 20 条，status 可为空或 PENDING/APPROVED/REJECTED |
 | PATCH | /admin/comments/{id} | status、version，版本过期返回 409 |
 | DELETE | /admin/comments/{id}?version=N | 永久删除评论 |
@@ -126,7 +128,7 @@
 | GET | /feed.xml | RSS XML，最新 50 篇公开摘要；另有根路径 /rss.xml |
 | GET | /sitemap.xml | XML 站点地图；另有根路径 /sitemap.xml |
 
-表中除根路径说明外均以 `/api/v1` 为前缀。评论 author 最长 64，content 最长 2000，按纯文字展示；website 是应留空的诱捕字段。评论关闭时提交返回 400，每个来源地址 10 分钟最多 5 次，超限返回 429 RATE_LIMITED。管理评论增加 slug、postTitle、status、version；公开评论仅返回 id、author、content、createdAt。
+表中除根路径说明外均以 `/api/v1` 为前缀。评论昵称来自账号，content 最长 2000，按纯文字展示；website 是应留空的诱捕字段。评论关闭时提交返回 400，每个来源地址和账号 10 分钟最多 5 次，超限返回 429 RATE_LIMITED。管理评论增加 slug、postTitle、status、version；公开评论返回 id、author、content、createdAt、memberId、avatar、parentId、replyTo，不含邮箱。历史游客 memberId 为 null，parentId 是同一文章内已通过审核的评论 ID。
 
 阅读统计日期以 Asia/Shanghai 计算，daily 为近 30 天有数据的日期及 count；posts 为前 20 篇文章及 count。它不代表独立访客。所有文章关联公开接口对草稿和未来日期文章返回 404，RSS 和站点地图遵守同一公开范围。
 
@@ -146,3 +148,53 @@
 | DELETE | /admin/music?version=N | 清空歌单并停用播放器 |
 
 追番状态为 WATCHING、PLANNED、COMPLETED、ON_HOLD、DROPPED；总集数 0 表示未知，评分 0 表示未评分。已完成状态要求已知总集数且全部看完。音乐写入字段为 playlistId、name、profileUrl、enabled、version；导入支持 QQ 歌单 ID 或完整链接，修改歌单 ID 必须调用 import。版本冲突返回 409，解析服务不可用返回 502 `MUSIC_SERVICE_UNAVAILABLE`。QQ 公开主页关联不提供登录或私密歌单读取。
+
+## 项目、专题与说说
+
+以下路径均以 `/api/v1` 为前缀，`section` 仅允许 `projects`、`series`、`moments`。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /{section}?page=1&size=12&keyword= | 公开列表，只返回 visible=true 且已到发布日期的内容 |
+| GET | /{section}/{id} | 公开详情，仅 projects、series；未公开或不存在返回 404 |
+| GET | /admin/{section}?page=1&size=12&keyword= | 管理列表，包含隐藏内容 |
+| POST | /admin/{section} | 新建内容 |
+| PUT | /admin/{section}/{id} | 修改内容，携带当前 version |
+| DELETE | /admin/{section}/{id}?version=N | 删除内容及关联 |
+
+分页 size 为 1–50，keyword 最长 100 字。写请求字段：title、summary、content、cover、status、technologies（字符串数组）、sourceUrl、demoUrl、images（有序地址数组）、postIds（有序文章 ID 数组）、publishedAt（YYYY-MM-DD）、sortOrder、visible、version。响应将 postIds 展开为 posts（id、title、slug、published），并增加 id、section。前台 posts 只包含已经公开的文章。
+
+项目状态 IN_PROGRESS / COMPLETED / ARCHIVED，专题 ONGOING / COMPLETED，说说为空字符串。标题最多 200 字，说说标题可为空；摘要最多 500 字；项目和专题正文最多 20000 字，说说正文为 1–5000 字；技术栈最多 20 项、每项 50 字，关联文章最多 100 篇且不能重复，说说图片最多 9 张。技术栈与源码、演示链接仅用于项目；多图仅用于说说，说说不支持文章关联。封面与图片沿用已有图片地址校验，项目外链仅允许 HTTP(S)。管理接口需管理员会话，写操作需 CSRF；版本过期返回 409 并保留数据库原内容。
+
+## 会员与互动（V11）
+
+以下均以 `/api/v1` 为前缀。写操作均需 CSRF；`/members/` 下除 config、session、email、register、login、reset 外需要 MEMBER 角色，`/admin/` 仍只允许 ADMIN。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /members/config | mailEnabled；未启用不能申请邮件 |
+| GET | /members/session | 当前用户资料或 null，游客/管理员/失效用户正常返回 null |
+| POST | /members/email | email、purpose=REGISTER/RESET；统一成功提示，不返回令牌 |
+| POST | /members/register | email、token、nickname、password；验证后建号，不自动登录 |
+| POST | /members/login | email、password；轮换会话与 CSRF |
+| POST | /members/reset | email、token、password；重置并使旧登录失效 |
+| GET / PUT | /members/me | 读取/修改资料；写 nickname、avatar、bio、version |
+| DELETE | /members/me | password；验证后注销并清除个人资料 |
+| PUT | /members/password | currentPassword、password；改密后退出所有旧会话 |
+| GET | /people/{id} | 公开 id、nickname、avatar、bio；封禁/注销账号不提供公开资料 |
+| GET | /members/comments?page=1 | 本人评论，含审核状态和 version |
+| DELETE | /members/comments/{id}?version=N | 只允许本人删除 |
+| GET | /members/notifications?page=1 | 审核通过的回复通知；隐藏/未来文章不提供链接 |
+| PATCH | /members/notifications/{id} | 仅本人标为已读 |
+| POST | /comments/{id}/reports | reason 最多 500 字；需正常用户，同一用户同一评论不可重复举报 |
+| GET | /admin/members?keyword=&page=1 | 管理用户列表，含邮箱与版本 |
+| PATCH | /admin/members/{id} | status=ACTIVE/MUTED/BANNED、version |
+| GET / PATCH | /admin/reports、/admin/reports/{id} | 举报列表 / 标为已处理 |
+| GET / POST | /guestbook?page=1 | 公开便签列表 / 正常用户提交待审核便签 |
+| GET | /members/guestbook?page=1 | 本人所有审核状态的便签 |
+| DELETE | /members/guestbook/{id}?version=N | 只允许本人删除 |
+| GET | /admin/guestbook?page=1 | 所有便签及审核状态 |
+| PATCH | /admin/guestbook/{id} | status=PENDING/APPROVED/REJECTED、version |
+| DELETE | /admin/guestbook/{id}?version=N | 管理员永久删除 |
+
+个人/管理用户资料为 id、email、nickname、avatar、bio、status、version，不含密码。所有分页每页 20 条。密码 10–72 字符且 UTF-8 编码最多 72 字节；邮箱最多 254 字符，统一去首尾空白并转为小写。便签写 content（1–500 字）、color（lavender/peach/mint/sky）。令牌 30 分钟有效，仅限申请邮箱与用途，数据库只存哈希且只用一次。完整部署配置、限流与注销行为见 `docs/members.md`。

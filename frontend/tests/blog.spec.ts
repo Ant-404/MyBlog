@@ -1,5 +1,52 @@
 import { test, expect } from '@playwright/test'
 
+test('simplified navigation groups article browsing and keeps only two footer links', async ({
+  page,
+}) => {
+  await page.goto('/')
+  const mainNav = page.getByRole('navigation', { name: '主导航' })
+  await expect(mainNav.getByRole('link')).toHaveText([
+    '首页',
+    '文章',
+    '项目',
+    '留言墙',
+    '追番',
+    '友链',
+    '关于',
+  ])
+  await expect(page.locator('.site-footer a')).toHaveText(['Mizuki', '管理后台'])
+  await expect(page.getByRole('button', { name: '随机漫游' })).toHaveCount(0)
+  await mainNav.getByRole('link', { name: '文章', exact: true }).click()
+  const browse = page.getByRole('navigation', { name: '文章浏览方式' })
+  for (const label of ['专题', '归档', '标签', '分类']) {
+    await browse.getByRole('link', { name: label, exact: true }).click()
+    await expect(browse.getByRole('link', { name: label, exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(mainNav.getByRole('link', { name: '文章', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(page.locator('.main-content > .card.content-page')).toBeVisible()
+  }
+  await page.screenshot({ path: '../docs/screenshots/article-browse-desktop.png', fullPage: true })
+  await page.getByRole('button', { name: '切换深色模式' }).click()
+  await browse.getByRole('link', { name: '专题', exact: true }).click()
+  await page.screenshot({ path: '../docs/screenshots/article-series-dark.png', fullPage: true })
+  await page.goto('/posts/hello-world')
+  await expect(mainNav.getByRole('link', { name: '文章', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await page.goto('/moments')
+  await expect(page).toHaveURL(/\/guestbook$/)
+  await expect(mainNav.getByRole('link', { name: '留言墙', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+})
+
 test('real API renders homepage, pagination, category and search', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -57,7 +104,14 @@ test('mobile navigation and layout stay within viewport', async ({ page }) => {
   ).toBeTruthy()
   await page.screenshot({ path: '../docs/screenshots/home-mobile.png', fullPage: true })
   await page.getByRole('button', { name: '打开或关闭导航' }).click()
-  await page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: '归档' }).click()
+  await page
+    .getByRole('navigation', { name: '主导航' })
+    .getByRole('link', { name: '文章', exact: true })
+    .click()
+  await page
+    .getByRole('navigation', { name: '文章浏览方式' })
+    .getByRole('link', { name: '归档' })
+    .click()
   await expect(page.locator('.archive-row')).toHaveCount(6)
 })
 

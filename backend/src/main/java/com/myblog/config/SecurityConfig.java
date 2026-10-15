@@ -60,6 +60,22 @@ public class SecurityConfig {
                 config
                     .requestMatchers("/api/v1/admin/**", "/api/v1/auth/me")
                     .hasRole("ADMIN")
+                    .requestMatchers(
+                        "/api/v1/members/config",
+                        "/api/v1/members/session",
+                        "/api/v1/members/email",
+                        "/api/v1/members/register",
+                        "/api/v1/members/login",
+                        "/api/v1/members/reset")
+                    .permitAll()
+                    .requestMatchers("/api/v1/members/**")
+                    .hasRole("MEMBER")
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/posts/*/comments",
+                        "/api/v1/comments/*/reports",
+                        "/api/v1/guestbook")
+                    .hasRole("MEMBER")
                     .requestMatchers(HttpMethod.GET, "/api/v1/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/rss.xml", "/sitemap.xml")
@@ -80,7 +96,7 @@ public class SecurityConfig {
                           response.setContentType("application/json;charset=UTF-8");
                           mapper.writeValue(
                               response.getWriter(),
-                              ApiResponse.failure("UNAUTHORIZED", "请先登录管理后台"));
+                              ApiResponse.failure("UNAUTHORIZED", "请先登录对应账号"));
                         })
                     .accessDeniedHandler(
                         (request, response, exception) -> {

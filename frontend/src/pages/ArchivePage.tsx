@@ -3,6 +3,7 @@ import { blogApi } from '../api/blog'
 import { useAsyncData } from '../hooks/useAsyncData'
 import { usePageTitle } from '../hooks/usePageTitle'
 import DataState from '../components/common/DataState'
+import ArticleBrowseNav from '../components/blog/ArticleBrowseNav'
 import { formatDate } from '../utils/date'
 
 export default function ArchivePage() {
@@ -11,6 +12,7 @@ export default function ArchivePage() {
   const years = [...new Set(data?.map((post) => post.publishedAt.slice(0, 4)))]
   return (
     <section className="card content-page">
+      <ArticleBrowseNav />
       <span className="eyebrow">EVERY STEP COUNTS</span>
       <h1>
         文章归档<span className="heading-dot">.</span>

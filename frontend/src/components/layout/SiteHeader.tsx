@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   Flower2,
   Sun,
@@ -7,20 +7,31 @@ import {
   Menu,
   X,
   Home,
-  Archive,
   FolderOpen,
   Link2,
   UserRound,
   Tv,
+  BriefcaseBusiness,
+  MessageCircle,
 } from 'lucide-react'
 import { useSite } from '../../contexts/SiteContext'
 import { useTheme } from '../../hooks/useTheme'
 import AppearanceSettings from './AppearanceSettings'
 import SearchBox from './SearchBox'
+import { useMember } from '../../contexts/MemberContext'
 
-const navIcons = [Home, Archive, FolderOpen, Tv, Link2, UserRound]
+const navIcons: Record<string, typeof Home> = {
+  '/': Home,
+  '/categories': FolderOpen,
+  '/anime': Tv,
+  '/friends': Link2,
+  '/about': UserRound,
+  '/projects': BriefcaseBusiness,
+  '/guestbook': MessageCircle,
+}
 
 export default function SiteHeader() {
+  const { member } = useMember()
   const site = useSite()
   const { dark, toggle } = useTheme()
   const location = useLocation()
@@ -48,18 +59,45 @@ export default function SiteHeader() {
           </span>
         </Link>
         <nav id="main-nav" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="主导航">
-          {site.nav.map((item, index) => {
-            const Icon = navIcons[index] || Home
+          {site.nav.map((item) => {
+            const Icon = navIcons[item.path] || Home
+            const active =
+              item.path === '/categories'
+                ? ['/categories', '/series', '/archives', '/tags', '/posts'].some(
+                    (path) =>
+                      location.pathname === path || location.pathname.startsWith(`${path}/`),
+                  )
+                : location.pathname === item.path ||
+                  (item.path !== '/' && location.pathname.startsWith(`${item.path}/`))
             return (
-              <NavLink key={item.path} to={item.path} end>
+              <Link
+                key={item.path}
+                to={item.path}
+                className={active ? 'active' : ''}
+                aria-current={active ? 'page' : undefined}
+              >
                 <Icon size={15} />
                 {item.label}
-              </NavLink>
+              </Link>
             )
           })}
+          <div className="mobile-nav-extras">
+            <p>
+              {site.author}
+              <span>{site.bio}</span>
+            </p>
+          </div>
         </nav>
         <div className="header-actions">
           <SearchBox />
+          <Link
+            className="icon-button"
+            to="/account"
+            aria-label={member ? '个人中心' : '用户登录与注册'}
+            title={member ? member.nickname : '用户登录与注册'}
+          >
+            <UserRound size={19} />
+          </Link>
           <button
             className="icon-button"
             onClick={toggle}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Clapperboard, ExternalLink, Search, Star, Tv } from 'lucide-react'
 import { animeApi } from '../api/anime'
 import { animeStatuses, type AnimeStatus } from '../types/anime'
@@ -9,9 +10,19 @@ import DataState from '../components/common/DataState'
 export default function AnimePage() {
   usePageTitle('追番记录')
   const { data, loading, error, refresh } = useAsyncData(animeApi.list)
-  const [status, setStatus] = useState<AnimeStatus | ''>('')
-  const [keyword, setKeyword] = useState('')
-  const [order, setOrder] = useState('updated')
+  const [params, setParams] = useSearchParams()
+  const status = Object.hasOwn(animeStatuses, params.get('status') || '')
+    ? (params.get('status') as AnimeStatus)
+    : ''
+  const keyword = (params.get('keyword') || '').slice(0, 200)
+  const order = params.get('order') === 'score' ? 'score' : 'updated'
+  const [expanded, setExpanded] = useState<number[]>([])
+  function filter(key: string, value: string) {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setParams(next, { replace: key === 'keyword' })
+  }
   const entries = useMemo(() => {
     const result = (data || []).filter(
       (entry) =>
@@ -50,7 +61,7 @@ export default function AnimePage() {
           <button
             className={!status ? 'active' : ''}
             aria-pressed={!status}
-            onClick={() => setStatus('')}
+            onClick={() => filter('status', '')}
           >
             全部 <small>{data?.length ?? 0}</small>
           </button>
@@ -59,7 +70,7 @@ export default function AnimePage() {
               key={value}
               className={status === value ? 'active' : ''}
               aria-pressed={status === value}
-              onClick={() => setStatus(value as AnimeStatus)}
+              onClick={() => filter('status', value)}
             >
               {label}
               <small>{data?.filter((entry) => entry.status === value).length ?? 0}</small>
@@ -73,14 +84,14 @@ export default function AnimePage() {
               aria-label="搜索番剧"
               placeholder="找一部喜欢的作品…"
               value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              onChange={(event) => filter('keyword', event.target.value)}
               maxLength={200}
             />
           </label>
           <select
             aria-label="追番排序"
             value={order}
-            onChange={(event) => setOrder(event.target.value)}
+            onChange={(event) => filter('order', event.target.value)}
           >
             <option value="updated">最近更新</option>
             <option value="score">评分优先</option>
@@ -138,7 +149,25 @@ export default function AnimePage() {
                     value={entry.watchedEpisodes}
                     max={entry.totalEpisodes || Math.max(1, entry.watchedEpisodes)}
                   />
-                  <p className="anime-note">{entry.note || '还没有留下观后感。'}</p>
+                  <p className={`anime-note ${expanded.includes(entry.id) ? 'is-expanded' : ''}`}>
+                    {entry.note || '还没有留下观后感。'}
+                  </p>
+                  {entry.note && entry.note.length > 60 && (
+                    <button
+                      type="button"
+                      className="text-button anime-note-toggle"
+                      aria-expanded={expanded.includes(entry.id)}
+                      onClick={() =>
+                        setExpanded((old) =>
+                          old.includes(entry.id)
+                            ? old.filter((id) => id !== entry.id)
+                            : [...old, entry.id],
+                        )
+                      }
+                    >
+                      {expanded.includes(entry.id) ? '收起观后感' : '展开观后感'}
+                    </button>
+                  )}
                   {entry.sourceUrl && (
                     <a
                       className="anime-source"

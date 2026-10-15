@@ -51,7 +51,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(AuthenticationException.class)
   public ResponseEntity<ApiResponse<Void>> authenticationFailure(
       AuthenticationException exception) {
-    return ResponseEntity.status(401).body(ApiResponse.failure("UNAUTHORIZED", "请先登录管理后台"));
+    return ResponseEntity.status(401)
+        .body(ApiResponse.failure("UNAUTHORIZED", "账号或密码不正确，或登录已失效，请重新登录"));
   }
 
   @ExceptionHandler({ResourceNotFoundException.class, NoResourceFoundException.class})

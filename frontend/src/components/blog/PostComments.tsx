@@ -1,30 +1,80 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { communityApi } from '../../api/community'
 import { demoMode } from '../../api/http'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { useSite } from '../../contexts/SiteContext'
 import DataState from '../common/DataState'
+import { Link } from 'react-router-dom'
+import { useMember } from '../../contexts/MemberContext'
+import { memberApi } from '../../api/members'
 
 export default function PostComments({ slug }: { slug: string }) {
+  const { member } = useMember()
+  return <MemberComments key={`${slug}:${member?.id || 'guest'}`} slug={slug} />
+}
+
+function MemberComments({ slug }: { slug: string }) {
   const site = useSite()
+  const { member, loading: memberLoading, refresh: refreshMember } = useMember()
+  const [reply, setReply] = useState<{ id: number; author: string } | null>(null)
+  const [reportId, setReportId] = useState<number>()
+  const [reason, setReason] = useState('')
   const [page, setPage] = useState(1)
   const fetch = useCallback(() => communityApi.comments(slug, page), [slug, page])
   const { data, loading, error, refresh } = useAsyncData(fetch)
-  const [author, setAuthor] = useState('')
-  const [content, setContent] = useState('')
+  const draftKey = `myblog-comment-draft:${member?.id || 'guest'}:${slug}`
+  const [draft] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey) || '{}')
+      return {
+        author: typeof saved.author === 'string' ? saved.author.slice(0, 64) : '',
+        content: typeof saved.content === 'string' ? saved.content.slice(0, 2000) : '',
+      }
+    } catch {
+      return { author: '', content: '' }
+    }
+  })
+  const author = member?.nickname || ''
+  const [content, setContent] = useState(draft.content)
+  const [draftStatus, setDraftStatus] = useState('')
   const [website, setWebsite] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (!site.commentsEnabled || demoMode || !member) return
+    const timer = setTimeout(() => {
+      try {
+        if (content.trim()) {
+          sessionStorage.setItem(draftKey, JSON.stringify({ author, content }))
+          setDraftStatus('草稿已保存在本标签页')
+        } else {
+          sessionStorage.removeItem(draftKey)
+          setDraftStatus('')
+        }
+      } catch {
+        setDraftStatus('当前浏览器无法保存草稿')
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [author, content, draftKey, site.commentsEnabled])
   async function submit() {
+    if (!author.trim() || !content.trim() || busy) return
     setBusy(true)
     setMessage('')
     setFailed(false)
     try {
-      await communityApi.submit(slug, author, content, website)
+      await communityApi.submit(slug, author.trim(), content.trim(), website, reply?.id)
+      try {
+        sessionStorage.removeItem(draftKey)
+      } catch {
+        /* Comment submission succeeded even when local storage is unavailable. */
+      }
       setContent('')
+      setReply(null)
       setMessage('评论已提交，审核通过后会显示在这里。')
     } catch (cause) {
+      void refreshMember()
       setFailed(true)
       setMessage(cause instanceof Error ? cause.message : '提交失败，请稍后重试')
     } finally {
@@ -37,7 +87,7 @@ export default function PostComments({ slug }: { slug: string }) {
         留言<span className="count">{data?.total ?? '—'}</span>
       </h2>
       <p className="muted">评论以纯文字展示，审核通过后公开。请勿留下私人联系方式。</p>
-      {site.commentsEnabled && !demoMode ? (
+      {site.commentsEnabled && !demoMode && member?.status === 'ACTIVE' ? (
         <form
           className="comment-form"
           onSubmit={(event) => {
@@ -45,16 +95,18 @@ export default function PostComments({ slug }: { slug: string }) {
             void submit()
           }}
         >
-          <label>
-            昵称
-            <input
-              required
-              maxLength={64}
-              value={author}
-              disabled={busy}
-              onChange={(e) => setAuthor(e.target.value)}
-            />
-          </label>
+          <p className="comment-identity">
+            以 <strong>{author}</strong> <span>#{member.id} · 邮箱已验证</span> 发表评论{' '}
+            <Link to="/account">管理账号</Link>
+          </p>
+          {reply && (
+            <p className="callout">
+              回复 {reply.author}
+              <button type="button" className="text-button" onClick={() => setReply(null)}>
+                取消回复
+              </button>
+            </p>
+          )}
           <label>
             评论内容
             <textarea
@@ -66,6 +118,10 @@ export default function PostComments({ slug }: { slug: string }) {
               onChange={(e) => setContent(e.target.value)}
             />
           </label>
+          <div className="comment-counter">
+            <span aria-live="polite">{draftStatus}</span>
+            <span>{content.length} / 2000</span>
+          </div>
           <label className="comment-honeypot" aria-hidden="true">
             Website
             <input
@@ -75,12 +131,27 @@ export default function PostComments({ slug }: { slug: string }) {
               onChange={(e) => setWebsite(e.target.value)}
             />
           </label>
-          <button className="button" disabled={busy}>
+          <button className="button" disabled={busy || !author.trim() || !content.trim()}>
             {busy ? '提交中…' : '提交评论'}
           </button>
         </form>
       ) : (
-        <p className="muted">{demoMode ? '预览模式不接受评论。' : '评论暂时关闭。'}</p>
+        <p className="muted">
+          {demoMode ? (
+            '预览模式不接受评论。'
+          ) : !site.commentsEnabled ? (
+            '评论暂时关闭。'
+          ) : memberLoading ? (
+            '正在读取登录状态…'
+          ) : member ? (
+            '账号已禁言，暂时无法评论。'
+          ) : (
+            <>
+              <Link to="/account">登录或注册</Link>
+              ，验证邮箱后即可评论。未完成的文字会保留在本标签页。
+            </>
+          )}
+        </p>
       )}
       {message && (
         <p className={failed ? 'form-error' : 'form-success'} role={failed ? 'alert' : 'status'}>
@@ -90,12 +161,94 @@ export default function PostComments({ slug }: { slug: string }) {
       <DataState loading={loading} error={error} onRetry={refresh}>
         <div className="comment-list">
           {data?.items.map((comment) => (
-            <article key={comment.id}>
+            <article key={comment.id} id={`comment-${comment.id}`}>
               <div>
-                <strong>{comment.author}</strong>
+                {comment.avatar && (
+                  <img className="comment-avatar" src={comment.avatar} alt="" loading="lazy" />
+                )}
+                <strong>
+                  {comment.memberId ? (
+                    <Link to={`/people/${comment.memberId}`}>{comment.author}</Link>
+                  ) : (
+                    comment.author
+                  )}
+                </strong>
+                <small>{comment.memberId ? `#${comment.memberId} · 注册用户` : '历史游客'}</small>
                 <time>{comment.createdAt}</time>
               </div>
+              {comment.replyTo && <p className="muted">回复 {comment.replyTo}</p>}
               <p>{comment.content}</p>
+              {member?.status === 'ACTIVE' && (
+                <div className="comment-actions">
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setReply({ id: comment.id, author: comment.author })
+                      document
+                        .querySelector('.comment-form')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      document
+                        .querySelector<HTMLTextAreaElement>('.comment-form textarea')
+                        ?.focus({ preventScroll: true })
+                    }}
+                  >
+                    回复
+                  </button>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setReportId(comment.id)
+                      setReason('')
+                    }}
+                  >
+                    举报
+                  </button>
+                </div>
+              )}
+              {reportId === comment.id && (
+                <form
+                  className="member-form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (busy) return
+                    setBusy(true)
+                    setFailed(false)
+                    setMessage('')
+                    void memberApi
+                      .report(comment.id, reason)
+                      .then(() => {
+                        setMessage('举报已提交，管理员会核查。')
+                        setReportId(undefined)
+                      })
+                      .catch((cause: unknown) => {
+                        setFailed(true)
+                        setMessage(cause instanceof Error ? cause.message : '举报失败')
+                      })
+                      .finally(() => setBusy(false))
+                  }}
+                >
+                  <label>
+                    举报原因
+                    <textarea
+                      required
+                      maxLength={500}
+                      rows={2}
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                    />
+                  </label>
+                  <button className="button" disabled={busy}>
+                    提交举报
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => setReportId(undefined)}
+                  >
+                    取消举报
+                  </button>
+                </form>
+              )}
             </article>
           ))}
         </div>

@@ -4,6 +4,10 @@
 
 前台新增五色主题、跟随系统的明暗模式、正文字号、横幅开关、记忆文章视图、搜索联想、文章日历、回到顶部、正文图片放大和代码复制。图片位置、样式文件和组件说明见 [前台定制指南](docs/frontend-customization.md)。
 
+首页支持自动发现 `home2`、`home3` 等横幅图片、随机淡入切换与三层流动波浪；阅读布局、手机搜索、评论草稿与播放器交互见 [动态效果说明](docs/ui-motion.md)。新增项目展示和文章专题，历史说说保留后台管理，前台入口由留言墙替代，启用前需手动执行 SQL，详见 [内容模块说明](docs/showcase.md)。
+
+评论现需注册用户验证邮箱并登录，支持个人中心、回复通知、举报及禁言封禁；QQ SMTP 配置见 [会员与评论保障](docs/members.md)。首批新增 [天气氛围和留言墙](docs/playful-features.md)，需要手动执行 SQL 至 V11。未配置邮箱服务时不开放注册或找回密码。
+
 ## 技术栈
 
 Mizuki 原项目使用 **Astro + Svelte + TypeScript + Tailwind CSS**，并使用 Swup、Pagefind、Markdown/MDX、KaTeX、Expressive Code 等处理过渡、静态搜索与内容。来源是原项目的 [package.json](https://github.com/matsuzaka-yuki/Mizuki/blob/master/package.json) 和 README，核实日期为 2026-10-14。
@@ -115,6 +119,12 @@ npm run dev
 | 标签 | `frontend/src/pages/TagPage.tsx` |
 | 友链 | `frontend/src/pages/FriendPage.tsx` |
 | 关于 | `frontend/src/pages/AboutPage.tsx` |
+| 项目列表 / 详情 | `frontend/src/pages/ProjectsPage.tsx` / `ProjectDetailPage.tsx` |
+| 专题列表 / 详情 | `frontend/src/pages/SeriesPage.tsx` / `SeriesDetailPage.tsx` |
+| 留言墙（兼容旧说说地址） | `frontend/src/pages/GuestbookPage.tsx` |
+| 用户个人中心 / 公开资料 | `frontend/src/pages/AccountPage.tsx` / `MemberProfilePage.tsx` |
+| 留言墙 | `frontend/src/pages/GuestbookPage.tsx` |
+| 用户与社区后台 | `frontend/src/pages/admin/AdminMembersPage.tsx` |
 | 404 / 页面异常 | `NotFoundPage.tsx` / `ErrorPage.tsx` |
 
 站点名称、作者和菜单在 `frontend/src/config/site.ts` 修改；颜色在 `styles/tokens.css` 修改；公共布局在 `layouts/BlogLayout.tsx` 修改；样式布局在 `styles/global.css` 修改。

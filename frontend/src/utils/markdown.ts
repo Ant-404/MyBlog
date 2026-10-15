@@ -34,6 +34,18 @@ export function renderMarkdown(content: string): string {
       code.innerHTML = hljs.highlight(code.textContent || '', { language }).value
       code.classList.add('hljs')
     }
+    const pre = code.parentElement!
+    const frame = document.createElement('div')
+    frame.className = 'code-frame'
+    const header = document.createElement('div')
+    header.className = 'code-header'
+    const badge = document.createElement('span')
+    badge.textContent = language || 'text'
+    const actions = document.createElement('div')
+    actions.className = 'code-actions'
+    header.append(badge, actions)
+    pre.replaceWith(frame)
+    frame.append(header, pre)
   })
   return container.innerHTML
 }

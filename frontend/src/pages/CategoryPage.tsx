@@ -4,12 +4,14 @@ import { blogApi } from '../api/blog'
 import { useAsyncData } from '../hooks/useAsyncData'
 import { usePageTitle } from '../hooks/usePageTitle'
 import DataState from '../components/common/DataState'
+import ArticleBrowseNav from '../components/blog/ArticleBrowseNav'
 
 export default function CategoryPage() {
   usePageTitle('分类')
   const { data, loading, error, refresh } = useAsyncData(blogApi.categories)
   return (
     <section className="card content-page">
+      <ArticleBrowseNav />
       <span className="eyebrow">FIND YOUR INTEREST</span>
       <h1>
         文章分类<span className="heading-dot">.</span>

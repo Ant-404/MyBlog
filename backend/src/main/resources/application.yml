@@ -15,6 +15,18 @@ spring:
       - optional:file:./.env[.properties]
   application:
     name: myblog-backend
+  mail:
+    host: ${SMTP_HOST:smtp.qq.com}
+    port: ${SMTP_PORT:465}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.ssl.enable: ${SMTP_SSL:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   servlet:
     multipart:
       max-file-size: 5MB
@@ -38,6 +50,9 @@ logging:
   level:
     com.myblog: INFO
 blog:
+  member:
+    mail-enabled: ${MEMBER_MAIL_ENABLED:false}
+    mail-from: ${SMTP_FROM:${SMTP_USERNAME:}}
   music:
     meting-api: ${METING_API_URL:https://api.i-meto.com/meting/api}
   media:

@@ -6,7 +6,7 @@
 
 | 修改内容 | 文件 | 说明 |
 | --- | --- | --- |
-| 首页横幅图片、取景位置 | `frontend/src/styles/global.css` 的 `.hero` | 当前为 `/images/home1.jpg`，`center 25% / cover`；垂直位置从 `0%` 顶部到 `100%` 底部 |
+| 首页横幅图片、取景位置 | `frontend/public/images/home数字.扩展名`、`frontend/src/styles/experience.css` 的 `.hero-picture` | 自动扫描 `home1.jpg`、`home2.webp` 等并随机淡入切换；默认 `center 25%`，生产环境增删图片后需重新构建 |
 | 个人卡片背景图 | 同文件的 `.profile-scenery` | 当前为 `/images/personal.jpg` |
 | 公共图片文件 | `frontend/public/images/` | 引用地址省略 `public`，例如 `/images/banner.jpg` |
 | 颜色、间距与正文字号变量 | `frontend/src/styles/tokens.css` | 默认藤紫，也提供晴蓝、松绿、蔷薇、麦金 |
@@ -16,6 +16,8 @@
 | 个人头像 | 后台站点设置 | 选择图片后保存 |
 
 `blog-theme.css` 主要样式限定在 `.blog-layout` 下，后台继续使用自身布局。主题变量由前后台共用。修改基础样式若没有反映到页面，应检查此文件的后置样式及对应媒体查询。
+
+后续阅读布局、手机搜索、随机横幅和三层流动波浪使用最后加载的 `styles/experience.css`。新增交互、图片命名及部署注意事项见 [前台阅读与动态效果](ui-motion.md)，以下为初版交互记录。
 
 ## 已添加的交互
 
