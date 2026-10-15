@@ -27,10 +27,10 @@ function time(value: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-function TrackCover({ src }: { src: string }) {
+function TrackCover({ src, className = 'music-track-cover' }: { src: string; className?: string }) {
   const [failed, setFailed] = useState('')
   return (
-    <span className="music-track-cover" aria-hidden="true">
+    <span className={className} aria-hidden="true">
       {src && src !== failed ? (
         <img src={src} alt="" loading="lazy" onError={() => setFailed(src)} />
       ) : (
@@ -75,6 +75,22 @@ export default function MusicPlayer() {
     }
   }, [])
   const [expanded, setExpanded] = useState(false)
+  const widget = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!expanded) return
+    function collapseOutside(event: Event) {
+      if (event.target instanceof Node && !widget.current?.contains(event.target))
+        setExpanded(false)
+    }
+    document.addEventListener('pointerdown', collapseOutside, true)
+    document.addEventListener('focusin', collapseOutside, true)
+    document.addEventListener('wheel', collapseOutside, { passive: true })
+    return () => {
+      document.removeEventListener('pointerdown', collapseOutside, true)
+      document.removeEventListener('focusin', collapseOutside, true)
+      document.removeEventListener('wheel', collapseOutside)
+    }
+  }, [expanded])
   const [showList, setShowList] = useState(false)
   const [selectedId, setSelectedId] = useState<number | undefined>(() => {
     try {
@@ -212,7 +228,7 @@ export default function MusicPlayer() {
   }
   if (data && !data.enabled) return null
   return (
-    <div className={`music-widget ${playing ? 'is-playing' : ''}`}>
+    <div ref={widget} className={`music-widget ${playing ? 'is-playing' : ''}`}>
       <audio
         ref={audio}
         src={track?.audioUrl}
@@ -238,10 +254,7 @@ export default function MusicPlayer() {
       {expanded && (
         <section id="music-panel" className="music-panel card" aria-label="音乐播放器">
           <header className="music-panel-header">
-            <span>
-              <Music2 size={15} />
-              {data?.name || '耳边的小世界'}
-            </span>
+            <span>{data?.name || '耳边的小世界'}</span>
             <button
               className="icon-button"
               aria-label="收起音乐播放器"
@@ -264,13 +277,10 @@ export default function MusicPlayer() {
           ) : track ? (
             <>
               <div className="music-now-playing">
-                <div className="music-artwork">
-                  {track.cover ? <img src={track.cover} alt="专辑封面" /> : <Disc3 size={36} />}
-                </div>
+                <TrackCover src={track.cover} className="music-artwork" />
                 <div>
                   <strong>{track.title}</strong>
                   <span>{track.artist || '未知歌手'}</span>
-                  <small>本地音乐</small>
                 </div>
               </div>
               <div className="music-timeline">
@@ -332,6 +342,8 @@ export default function MusicPlayer() {
                   aria-label="显示或隐藏播放列表"
                   aria-expanded={showList}
                   onClick={() => setShowList(!showList)}
+                  aria-controls="music-playlist"
+                  data-active={showList || undefined}
                 >
                   <ListMusic size={19} />
                 </button>
@@ -352,6 +364,7 @@ export default function MusicPlayer() {
                   aria-label="音乐音量"
                   onChange={(event) => setVolume(event.target.value)}
                 />
+                <span className="music-track-count">{data?.tracks.length || 0} 首音乐</span>
               </div>
               {error && (
                 <p className="music-error" role="status">
@@ -359,7 +372,7 @@ export default function MusicPlayer() {
                 </p>
               )}
               {showList && (
-                <ol className="music-track-list" aria-label="播放列表">
+                <ol id="music-playlist" className="music-track-list" aria-label="播放列表">
                   {data?.tracks.map((item, itemIndex) => (
                     <li key={item.id}>
                       <button
@@ -396,8 +409,11 @@ export default function MusicPlayer() {
         aria-controls="music-panel"
         onClick={() => setExpanded(!expanded)}
       >
-        <Disc3 size={22} />
-        <span>{playing && track ? track.title : '听一首歌'}</span>
+        <TrackCover src={track?.cover || ''} className="music-launcher-artwork" />
+        <span className="music-launcher-copy">
+          <strong>{track ? track.title : '听一首歌'}</strong>
+          <small>{track ? track.artist || '未知歌手' : '耳边的小世界'}</small>
+        </span>
         {playing && (
           <span className="music-equalizer" aria-hidden="true">
             <i />

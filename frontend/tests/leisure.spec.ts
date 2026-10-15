@@ -44,8 +44,11 @@ test('local music plays continuously between public routes and appears in admin'
   await expect(page.locator('.archive-row')).toHaveCount(6)
   expect(await audioHandle!.evaluate((node) => node.isConnected)).toBe(true)
   expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
+  await expect(page.getByRole('region', { name: '音乐播放器', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '展开音乐播放器' }).click()
   await page.getByRole('button', { name: '下一首', exact: true }).click()
   await expect(page.locator('.music-now-playing strong')).toHaveText('歌曲 2')
+  await expect(page.getByRole('region', { name: '音乐播放器', exact: true })).toBeVisible()
   await expect.poll(() => audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
   await page.getByRole('button', { name: '暂停音乐', exact: true }).click()
   expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
@@ -60,6 +63,11 @@ test('local music plays continuously between public routes and appears in admin'
     page.locator('.music-track-list li').nth(1).locator('.music-track-cover svg'),
   ).toBeVisible()
   await page.screenshot({ path: '../docs/screenshots/music-player-local.png' })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await page.screenshot({ path: '../docs/screenshots/music-player-minimal-dark.png' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: '../docs/screenshots/music-player-minimal-mobile.png' })
   expect(remoteRequests).toEqual([])
 })
 
