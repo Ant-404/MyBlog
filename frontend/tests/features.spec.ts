@@ -169,10 +169,10 @@ test('reading tools comments moderation feeds and statistics work together', asy
     await page.reload()
     await page.getByLabel('评论内容').fill('<script>window.badComment=true</script>文字评论')
     await page.getByRole('button', { name: '提交评论', exact: true }).click()
-    await expect(page.getByRole('status')).toContainText('审核通过后')
+    await expect(page.getByRole('status')).toContainText('评论已发布')
     expect(
       (await (await page.request.get(`/api/v1/posts/${post.slug}/comments`)).json()).data.total,
-    ).toBe(0)
+    ).toBe(1)
     await login(page)
     await page.goto('/admin/comments')
     const row = page.locator('.comment-list article').filter({ hasText: 'FeatureComment' })

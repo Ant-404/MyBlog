@@ -15,6 +15,7 @@
 -- [V9 | 2026-10-15] 追番记录、QQ 公开歌单配置与歌曲元数据。
 -- [V10 | 2026-10-15] 项目展示、文章专题、说说及有序文章/图片关联；不插入个人示例内容。
 -- [V11 | 2026-10-15] 邮箱验证会员、一次性令牌、评论账号与回复、通知、举报和留言墙。
+-- [V12 | 2026-10-15] 留言墙支持匿名便签，允许 guestbook_entries.member_id 为空。
 -- [整理 | 2026-10-15] 合并为唯一文件，移除 Flyway，改为手动执行。
 
 -- @mysql-only-begin
@@ -213,7 +214,7 @@ CREATE TABLE IF NOT EXISTS comment_reports (
 );
 CREATE TABLE IF NOT EXISTS guestbook_entries (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    member_id BIGINT NOT NULL,
+    member_id BIGINT NULL,
     content VARCHAR(500) NOT NULL,
     color VARCHAR(16) NOT NULL DEFAULT 'lavender',
     status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
@@ -275,6 +276,9 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS myblog_apply_schema_20261015$$
 CREATE PROCEDURE myblog_apply_schema_20261015()
 BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'guestbook_entries' AND column_name = 'member_id' AND is_nullable = 'NO') THEN
+        ALTER TABLE guestbook_entries MODIFY COLUMN member_id BIGINT NULL;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'posts' AND column_name = 'version') THEN
         ALTER TABLE posts ADD COLUMN version INT NOT NULL DEFAULT 0;
     END IF;

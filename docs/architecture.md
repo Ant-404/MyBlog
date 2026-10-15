@@ -72,7 +72,7 @@
 
 `ArticleReadingTools` 根据清理后的标题生成目录、锚点和阅读进度；Markdown 公共工具只加载常用语言的 Highlight.js 语法。相邻文章由后端按发布日期和 ID 查询，仅返回公开文章。
 
-`comment` 模块按文章查询公开评论，默认 PENDING，只有 APPROVED 才公开。后台状态修改和删除携带 version。提交保留匿名 CSRF、纯文字展示、长度限制、诱捕字段和来源限流；不保存邮箱与来源 IP。限流缓存仅在内存保存来源地址，最多 10000 个窗口，10 分钟后清理。
+`comment` 模块按文章查询公开评论，默认 PENDING：注册用户的待审评论先公开，匿名待审评论隐藏；APPROVED 公开，REJECTED 隐藏。后台状态修改和删除携带 version。公开判断由 CommentRepository.publiclyVisible 统一提供，列表、计数、回复目标、通知和举报遵循相同规则。提交保留匿名 CSRF、纯文字展示、长度限制、诱捕字段和来源限流；注册用户额外按账号限流。昵称和用户编号由服务端读取，不保存邮箱与来源 IP。限流缓存仅在内存保存来源地址，最多 10000 个窗口，10 分钟后清理。
 
 `statistics` 将每天的文章计数写入 post_views，HttpSession 维护本日已读文章（最多 1000 项），避免重复刷新计数。计数是近似阅读量，不提供独立访客推断。`feed` 使用 XMLStreamWriter 转义内容，并过滤非法 XML 控制字符，以设置中的 publicUrl 生成 RSS 和站点地图，不信任请求 Host 来生成链接。
 

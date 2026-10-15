@@ -29,7 +29,7 @@ export interface Notice {
 }
 export interface Note {
   id: number
-  memberId: number
+  memberId: number | null
   author: string
   content: string
   color: string
@@ -81,7 +81,8 @@ export const memberApi = {
   resolve: (id: number) => mutate(`/admin/reports/${id}`, 'PATCH'),
   notes: (page: number, admin = false) =>
     request<PageResult<Note>>(`/${admin ? 'admin/' : ''}guestbook?page=${page}`),
-  addNote: (content: string, color: string) => mutate('/guestbook', 'POST', { content, color }),
+  addNote: (content: string, color: string, website = '') =>
+    mutate('/guestbook', 'POST', { content, color, website }),
   ownNotes: (page: number) => request<PageResult<Note>>(`/members/guestbook?page=${page}`),
   noteState: (note: Note, status: string) =>
     mutate(`/admin/guestbook/${note.id}`, 'PATCH', { status, version: note.version }),

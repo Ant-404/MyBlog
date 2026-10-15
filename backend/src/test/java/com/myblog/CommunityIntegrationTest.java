@@ -31,23 +31,6 @@ class CommunityIntegrationTest {
   @Autowired ObjectMapper mapper;
   @Autowired JdbcTemplate jdbc;
 
-  private org.springframework.test.web.servlet.request.RequestPostProcessor member() {
-    String email = "community-" + UUID.randomUUID() + "@example.com";
-    jdbc.update(
-        "INSERT INTO members(email,password_hash,nickname) VALUES (?,?,'CommunityTest')",
-        email,
-        "unused");
-    long id = jdbc.queryForObject("SELECT id FROM members WHERE email=?", Long.class, email);
-    return authentication(
-        org.springframework.security.authentication.UsernamePasswordAuthenticationToken
-            .authenticated(
-                new com.myblog.member.dto.MemberModels.Identity(id, 0),
-                null,
-                List.of(
-                    new org.springframework.security.core.authority.SimpleGrantedAuthority(
-                        "ROLE_MEMBER"))));
-  }
-
   private String fixture(String status, LocalDate date) {
     String slug = "community-test-" + UUID.randomUUID();
     long category = jdbc.queryForObject("SELECT MIN(id) FROM categories", Long.class);
@@ -65,15 +48,14 @@ class CommunityIntegrationTest {
   }
 
   @Test
-  void pendingCommentsRequireApprovalAndVersionChecks() throws Exception {
-    var member = member();
+  void anonymousCommentsRequireApprovalAndVersionChecks() throws Exception {
     String slug = fixture("PUBLISHED", LocalDate.now().minusDays(1));
     String body =
         "{\"author\":\"CommunityTest\",\"content\":\"<script>plain"
             + " text</script>\",\"website\":\"\"}";
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
-                .with(member)
+                .with(anonymous())
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -93,7 +75,9 @@ class CommunityIntegrationTest {
         .andExpect(status().isOk());
     mvc.perform(get("/api/v1/posts/" + slug + "/comments").with(anonymous()))
         .andExpect(jsonPath("$.data.total").value(1))
-        .andExpect(jsonPath("$.data.items[0].content").value("<script>plain text</script>"));
+        .andExpect(jsonPath("$.data.items[0].content").value("<script>plain text</script>"))
+        .andExpect(jsonPath("$.data.items[0].author").value("匿名用户"))
+        .andExpect(jsonPath("$.data.items[0].memberId").isEmpty());
     mvc.perform(delete("/api/v1/admin/comments/" + id).param("version", "0").with(csrf()))
         .andExpect(status().isConflict());
     mvc.perform(
@@ -110,7 +94,6 @@ class CommunityIntegrationTest {
 
   @Test
   void commentsEnforceCsrfRateLimitAndPublicVisibility() throws Exception {
-    var member = member();
     String slug = fixture("PUBLISHED", LocalDate.now().minusDays(1));
     String body = "{\"author\":\"CommunityRateTest\",\"content\":\"hello\",\"website\":\"\"}";
     mvc.perform(
@@ -122,7 +105,7 @@ class CommunityIntegrationTest {
     for (int i = 0; i < 5; i++)
       mvc.perform(
               post("/api/v1/posts/" + slug + "/comments")
-                  .with(member)
+                  .with(anonymous())
                   .with(csrf())
                   .with(
                       request -> {
@@ -134,7 +117,7 @@ class CommunityIntegrationTest {
           .andExpect(status().isAccepted());
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
-                .with(member)
+                .with(anonymous())
                 .with(csrf())
                 .with(
                     request -> {
@@ -149,7 +132,7 @@ class CommunityIntegrationTest {
     jdbc.update("UPDATE site_settings SET comments_enabled=false WHERE id=1");
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
-                .with(member)
+                .with(anonymous())
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))

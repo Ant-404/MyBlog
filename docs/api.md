@@ -119,8 +119,8 @@
 | GET | /posts/{slug}/neighbors | previous/next 摘要或 null；按公开文章发布日期、ID 排序 |
 | GET | /posts/{slug}/view | 阅读计数，data 为数字 |
 | POST | /posts/{slug}/view | 同一会话同一天同一文章去重；需 CSRF，可匿名 |
-| GET | /posts/{slug}/comments?page=N | 已通过评论，每页 20 条 |
-| POST | /posts/{slug}/comments | content、website、可选 parentId；返回 202，默认待审核；需已验证邮箱的用户会话及 CSRF，author 由服务端读取 |
+| GET | /posts/{slug}/comments?page=N | 公开评论（含注册用户待审核评论），每页 20 条 |
+| POST | /posts/{slug}/comments | content、website、可选 parentId；返回 202，默认待审核；需 CSRF，可匿名；注册用户先展示后审核，游客审核通过后展示，author/memberId 由服务端决定 |
 | GET | /admin/comments?status=PENDING&page=1 | 审核列表，每页 20 条，status 可为空或 PENDING/APPROVED/REJECTED |
 | PATCH | /admin/comments/{id} | status、version，版本过期返回 409 |
 | DELETE | /admin/comments/{id}?version=N | 永久删除评论 |
@@ -184,13 +184,13 @@
 | GET | /people/{id} | 公开 id、nickname、avatar、bio；封禁/注销账号不提供公开资料 |
 | GET | /members/comments?page=1 | 本人评论，含审核状态和 version |
 | DELETE | /members/comments/{id}?version=N | 只允许本人删除 |
-| GET | /members/notifications?page=1 | 审核通过的回复通知；隐藏/未来文章不提供链接 |
+| GET | /members/notifications?page=1 | 公开回复的通知（含注册用户待审核回复）；拒绝的回复、隐藏/未来文章不提供链接 |
 | PATCH | /members/notifications/{id} | 仅本人标为已读 |
 | POST | /comments/{id}/reports | reason 最多 500 字；需正常用户，同一用户同一评论不可重复举报 |
 | GET | /admin/members?keyword=&page=1 | 管理用户列表，含邮箱与版本 |
 | PATCH | /admin/members/{id} | status=ACTIVE/MUTED/BANNED、version |
 | GET / PATCH | /admin/reports、/admin/reports/{id} | 举报列表 / 标为已处理 |
-| GET / POST | /guestbook?page=1 | 公开便签列表 / 正常用户提交待审核便签 |
+| GET / POST | /guestbook?page=1 | 公开便签列表 / 游客或正常注册用户提交待审核便签；POST 需 CSRF，content 最多 500 字、color、可选 website 诱捕字段；游客 memberId=null、author=匿名用户 |
 | GET | /members/guestbook?page=1 | 本人所有审核状态的便签 |
 | DELETE | /members/guestbook/{id}?version=N | 只允许本人删除 |
 | GET | /admin/guestbook?page=1 | 所有便签及审核状态 |

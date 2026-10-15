@@ -30,19 +30,31 @@ public class CommentService {
     return new PageResponse<>(repository.list(id, page), repository.count(id), page, 20);
   }
 
+  @org.springframework.transaction.annotation.Transactional
   public void submit(
       String slug,
       CommentWriteRequest input,
       String address,
       org.springframework.security.core.Authentication authentication) {
-    var member = members.commenter(authentication);
+    var member =
+        authentication != null
+                && authentication.getPrincipal()
+                    instanceof com.myblog.member.dto.MemberModels.Identity
+            ? members.commenter(authentication)
+            : null;
     long id = repository.publicPostId(slug);
     if (!settings.get().commentsEnabled()) throw new InvalidInputException("评论暂时关闭");
     if (input.website() != null && !input.website().isBlank())
       return; // Honeypot: bots get the same acknowledgement.
     limiter.check(address);
-    limiter.check("member:" + member.id());
-    repository.create(id, input, member.id(), member.nickname());
+    if (member != null) limiter.check("member:" + member.id());
+    long comment =
+        repository.create(
+            id,
+            input,
+            member == null ? null : member.id(),
+            member == null ? "匿名用户" : member.nickname());
+    if (member != null) repository.notifyReply(comment, "PENDING");
   }
 
   public PageResponse<AdminCommentResponse> adminList(String status, int page) {

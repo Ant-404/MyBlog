@@ -141,7 +141,7 @@ export default function AdminMembersPage() {
               <article key={note.id} className="member-list-item">
                 <div>
                   <strong>
-                    {note.author} #{note.memberId}
+                    {note.author} {note.memberId != null && `#${note.memberId}`}
                   </strong>
                   <p>{note.content}</p>
                   <small>{names[note.status]}</small>

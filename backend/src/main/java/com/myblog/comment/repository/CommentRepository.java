@@ -4,6 +4,7 @@ import com.myblog.comment.dto.*;
 import com.myblog.common.exception.ResourceNotFoundException;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -26,26 +27,47 @@ public class CommentRepository {
         .orElseThrow(() -> new ResourceNotFoundException("文章不存在"));
   }
 
-  public void create(long postId, CommentWriteRequest input, long memberId, String nickname) {
+  public static String publiclyVisible(String alias) {
+    String prefix = alias.isEmpty() ? "" : alias + ".";
+    return "("
+        + prefix
+        + "status='APPROVED' OR ("
+        + prefix
+        + "status='PENDING' AND "
+        + prefix
+        + "member_id IS NOT NULL))";
+  }
+
+  public long create(long postId, CommentWriteRequest input, Long memberId, String nickname) {
     if (input.parentId() != null
         && jdbc.queryForObject(
-                "SELECT COUNT(*) FROM comments WHERE id=? AND post_id=? AND status='APPROVED'",
+                "SELECT COUNT(*) FROM comments WHERE id=? AND post_id=? AND " + publiclyVisible(""),
                 Long.class,
                 input.parentId(),
                 postId)
             != 1) throw new com.myblog.common.exception.InvalidInputException("回复的评论已不可用，请刷新后重试");
+    var key = new GeneratedKeyHolder();
     jdbc.update(
-        "INSERT INTO comments(post_id,author,content,member_id,parent_id) VALUES (?,?,?,?,?)",
-        postId,
-        nickname,
-        input.content().trim(),
-        memberId,
-        input.parentId());
+        connection -> {
+          var statement =
+              connection.prepareStatement(
+                  "INSERT INTO comments(post_id,author,content,member_id,parent_id) VALUES"
+                      + " (?,?,?,?,?)",
+                  new String[] {"id"});
+          statement.setLong(1, postId);
+          statement.setString(2, nickname);
+          statement.setString(3, input.content().trim());
+          statement.setObject(4, memberId, java.sql.Types.BIGINT);
+          statement.setObject(5, input.parentId(), java.sql.Types.BIGINT);
+          return statement;
+        },
+        key);
+    return key.getKey().longValue();
   }
 
   public long count(long id) {
     return jdbc.queryForObject(
-        "SELECT COUNT(*) FROM comments WHERE post_id=? AND status='APPROVED'", Long.class, id);
+        "SELECT COUNT(*) FROM comments WHERE post_id=? AND " + publiclyVisible(""), Long.class, id);
   }
 
   public List<CommentResponse> list(long id, int page) {
@@ -53,22 +75,29 @@ public class CommentRepository {
         "SELECT c.*,m.nickname,m.avatar,parent.member_id AS parent_member,parent.author AS"
             + " parent_author,pm.nickname AS parent_nickname FROM comments c LEFT JOIN members m ON"
             + " m.id=c.member_id LEFT JOIN comments parent ON parent.id=c.parent_id AND"
-            + " parent.status='APPROVED' LEFT JOIN members pm ON pm.id=parent.member_id WHERE"
-            + " c.post_id=? AND c.status='APPROVED' ORDER BY c.id DESC LIMIT 20 OFFSET ?",
+            + publiclyVisible("parent")
+            + " LEFT JOIN members pm ON pm.id=parent.member_id WHERE"
+            + " c.post_id=? AND "
+            + publiclyVisible("c")
+            + " ORDER BY c.id DESC LIMIT 20 OFFSET ?",
         (rs, n) ->
             new CommentResponse(
                 rs.getLong("id"),
-                rs.getString("nickname") == null
-                    ? rs.getString("author")
-                    : rs.getString("nickname"),
+                rs.getObject("member_id") == null
+                    ? "匿名用户"
+                    : rs.getString("nickname") == null
+                        ? rs.getString("author")
+                        : rs.getString("nickname"),
                 rs.getString("content"),
                 rs.getString("created_at"),
                 rs.getObject("member_id", Long.class),
                 rs.getString("avatar"),
                 rs.getObject("parent_id", Long.class),
-                rs.getString("parent_nickname") == null
-                    ? rs.getString("parent_author")
-                    : rs.getString("parent_nickname")),
+                rs.getObject("parent_member") == null && rs.getString("parent_author") != null
+                    ? "匿名用户"
+                    : rs.getString("parent_nickname") == null
+                        ? rs.getString("parent_author")
+                        : rs.getString("parent_nickname")),
         id,
         (page - 1) * 20);
   }
@@ -91,7 +120,8 @@ public class CommentRepository {
                 rs.getString("content"),
                 rs.getString("status"),
                 rs.getInt("version"),
-                rs.getString("created_at")),
+                rs.getString("created_at"),
+                rs.getObject("member_id", Long.class)),
         status,
         status,
         (page - 1) * 20);
@@ -106,12 +136,15 @@ public class CommentRepository {
   }
 
   public void notifyReply(long id, String status) {
-    if (!status.equals("APPROVED")) return;
+    if (!status.equals("APPROVED") && !status.equals("PENDING")) return;
     jdbc.update(
         "INSERT INTO member_notifications(member_id,comment_id,message) SELECT"
             + " parent.member_id,c.id,'你的评论收到了一条回复' FROM comments c JOIN comments parent ON"
             + " parent.id=c.parent_id JOIN members m ON m.id=parent.member_id WHERE c.id=? AND"
-            + " parent.status='APPROVED' AND parent.member_id<>c.member_id AND m.status<>'DELETED'"
+            + publiclyVisible("parent")
+            + " AND "
+            + publiclyVisible("c")
+            + " AND (c.member_id IS NULL OR parent.member_id<>c.member_id) AND m.status<>'DELETED'"
             + " AND NOT EXISTS (SELECT 1 FROM member_notifications n WHERE"
             + " n.member_id=parent.member_id AND n.comment_id=c.id)",
         id);

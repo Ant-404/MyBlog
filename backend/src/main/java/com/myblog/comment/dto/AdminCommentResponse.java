@@ -8,4 +8,5 @@ public record AdminCommentResponse(
     String content,
     String status,
     int version,
-    String createdAt) {}
+    String createdAt,
+    Long memberId) {}

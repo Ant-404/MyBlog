@@ -57,7 +57,10 @@ export default function BlogLayout() {
           >
             Mizuki
           </a>{' '}
-          · <Link to="/admin">管理后台</Link>
+          ·{' '}
+          <Link to="/admin" target="_blank" rel="noopener noreferrer">
+            管理后台
+          </Link>
         </span>
       </footer>
       <ScrollToTop />

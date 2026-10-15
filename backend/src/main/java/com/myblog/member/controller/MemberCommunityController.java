@@ -82,7 +82,8 @@ public class MemberCommunityController {
 
   public record NoteInput(
       @NotBlank @Size(max = 500) String content,
-      @NotNull @Pattern(regexp = "lavender|peach|mint|sky") String color) {}
+      @NotNull @Pattern(regexp = "lavender|peach|mint|sky") String color,
+      @Size(max = 200) String website) {}
 
   public record NoteState(
       @NotNull @Pattern(regexp = "PENDING|APPROVED|REJECTED") String status, @Min(0) int version) {}
@@ -95,9 +96,18 @@ public class MemberCommunityController {
 
   @PostMapping("/guestbook")
   public ApiResponse<Void> addNote(
-      Authentication authentication, @Valid @RequestBody NoteInput input) {
-    long member = members.commenter(authentication).id();
-    limiter.check("note:" + member, 3);
+      Authentication authentication,
+      @Valid @RequestBody NoteInput input,
+      jakarta.servlet.http.HttpServletRequest request) {
+    Long member =
+        authentication != null
+                && authentication.getPrincipal()
+                    instanceof com.myblog.member.dto.MemberModels.Identity
+            ? members.commenter(authentication).id()
+            : null;
+    if (input.website() != null && !input.website().isBlank()) return ApiResponse.success(null);
+    limiter.check("note-ip:" + request.getRemoteAddr(), 3);
+    if (member != null) limiter.check("note:" + member, 3);
     repository.addNote(member, input.content(), input.color());
     return ApiResponse.success(null);
   }

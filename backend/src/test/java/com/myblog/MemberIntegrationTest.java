@@ -241,8 +241,11 @@ class MemberIntegrationTest {
   void commentsUseServerIdentityAndOwnershipProtectsDelete() throws Exception {
     long a = member("真实昵称"), b = member("其他用户");
     String slug = jdbc.queryForObject("SELECT slug FROM posts WHERE id=1", String.class);
-    mvc.perform(json(post("/api/v1/posts/" + slug + "/comments"), Map.of("content", "hello")))
-        .andExpect(status().isUnauthorized());
+    mvc.perform(
+            json(
+                post("/api/v1/posts/" + slug + "/comments"),
+                Map.of("content", "guest", "author", "冒用昵称", "memberId", a)))
+        .andExpect(status().isAccepted());
     mvc.perform(
             json(
                 post("/api/v1/posts/" + slug + "/comments").with(as(a)),
@@ -252,7 +255,8 @@ class MemberIntegrationTest {
     assertEquals(
         "真实昵称", jdbc.queryForObject("SELECT author FROM comments WHERE id=?", String.class, id));
     mvc.perform(get("/api/v1/posts/" + slug + "/comments"))
-        .andExpect(jsonPath("$.data.total").value(0));
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].author").value("真实昵称"));
     mvc.perform(
             json(
                 delete("/api/v1/members/comments/" + id).param("version", "0").with(as(b)),
@@ -263,6 +267,69 @@ class MemberIntegrationTest {
                 delete("/api/v1/members/comments/" + id).param("version", "0").with(as(a)),
                 Map.of()))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void memberRepliesPublishBeforeReviewWhileAnonymousRepliesWaitAndCannotImpersonate()
+      throws Exception {
+    long owner = member("原作者"), responder = member("注册回复者");
+    long parent = comment(owner, "PENDING", null);
+    String slug =
+        jdbc.queryForObject(
+            "SELECT p.slug FROM posts p JOIN comments c ON p.id=c.post_id WHERE c.id=?",
+            String.class,
+            parent);
+    mvc.perform(
+            json(
+                post("/api/v1/posts/" + slug + "/comments").with(as(responder)),
+                Map.of("content", "立即公开的回复", "parentId", parent)))
+        .andExpect(status().isAccepted());
+    long reply =
+        jdbc.queryForObject(
+            "SELECT MAX(id) FROM comments WHERE member_id=?", Long.class, responder);
+    mvc.perform(get("/api/v1/members/notifications").with(as(owner)))
+        .andExpect(jsonPath("$.data.total").value(1));
+    mvc.perform(
+            json(
+                post("/api/v1/comments/" + reply + "/reports").with(as(owner)),
+                Map.of("reason", "待审也可举报")))
+        .andExpect(status().isOk());
+    mvc.perform(
+            json(
+                patch("/api/v1/admin/comments/" + reply).with(user("admin").roles("ADMIN")),
+                Map.of("status", "REJECTED", "version", 0)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/members/notifications").with(as(owner)))
+        .andExpect(jsonPath("$.data.total").value(0));
+    mvc.perform(
+            json(
+                post("/api/v1/posts/" + slug + "/comments"),
+                Map.of(
+                    "author", "冒用原作者", "content", "匿名回复", "parentId", parent, "memberId", owner)))
+        .andExpect(status().isAccepted());
+    long anonymous =
+        jdbc.queryForObject("SELECT MAX(id) FROM comments WHERE member_id IS NULL", Long.class);
+    assertEquals(
+        "匿名用户",
+        jdbc.queryForObject("SELECT author FROM comments WHERE id=?", String.class, anonymous));
+    mvc.perform(get("/api/v1/posts/" + slug + "/comments"))
+        .andExpect(jsonPath("$.data.total").value(1));
+    mvc.perform(
+            json(
+                patch("/api/v1/admin/comments/" + anonymous).with(user("admin").roles("ADMIN")),
+                Map.of("status", "APPROVED", "version", 0)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/posts/" + slug + "/comments"))
+        .andExpect(jsonPath("$.data.total").value(2));
+    mvc.perform(get("/api/v1/members/notifications").with(as(owner)))
+        .andExpect(jsonPath("$.data.total").value(1));
+    mvc.perform(
+            json(
+                patch("/api/v1/admin/comments/" + anonymous).with(user("admin").roles("ADMIN")),
+                Map.of("status", "APPROVED", "version", 1)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/members/notifications").with(as(owner)))
+        .andExpect(jsonPath("$.data.total").value(1));
   }
 
   @Test
@@ -315,6 +382,11 @@ class MemberIntegrationTest {
                 Map.of("status", "MUTED", "version", 0)))
         .andExpect(status().isOk());
     mvc.perform(get("/api/v1/members/me").with(as(id))).andExpect(status().isUnauthorized());
+    mvc.perform(
+            json(
+                post("/api/v1/posts/hello-world/comments").with(as(id)),
+                Map.of("content", "过期身份不能降级成游客")))
+        .andExpect(status().isUnauthorized());
     var session = new MockHttpSession();
     mvc.perform(
             json(
@@ -325,6 +397,11 @@ class MemberIntegrationTest {
             json(
                 post("/api/v1/guestbook").session(session),
                 Map.of("content", "不允许发布", "color", "mint")))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            json(
+                post("/api/v1/posts/hello-world/comments").session(session),
+                Map.of("content", "禁言账号不能发表评论")))
         .andExpect(status().isBadRequest());
     mvc.perform(
             json(
@@ -388,6 +465,53 @@ class MemberIntegrationTest {
                 delete("/api/v1/members/guestbook/" + id).param("version", "1").with(as(a)),
                 Map.of()))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void anonymousGuestbookNeedsCsrfAndModerationAndCannotClaimOwnership() throws Exception {
+    var input = Map.of("content", "匿名便签", "color", "sky", "memberId", member("不可冒用"));
+    mvc.perform(
+            post("/api/v1/guestbook")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(input)))
+        .andExpect(status().isForbidden());
+    mvc.perform(json(post("/api/v1/guestbook"), input)).andExpect(status().isOk());
+    long id = jdbc.queryForObject("SELECT MAX(id) FROM guestbook_entries", Long.class);
+    assertNull(
+        jdbc.queryForObject("SELECT member_id FROM guestbook_entries WHERE id=?", Long.class, id));
+    mvc.perform(get("/api/v1/guestbook")).andExpect(jsonPath("$.data.total").value(0));
+    mvc.perform(get("/api/v1/admin/guestbook").with(user("admin").roles("ADMIN")))
+        .andExpect(jsonPath("$.data.items[0].author").value("匿名用户"))
+        .andExpect(jsonPath("$.data.items[0].memberId").isEmpty());
+    mvc.perform(
+            json(
+                patch("/api/v1/admin/guestbook/" + id).with(user("admin").roles("ADMIN")),
+                Map.of("status", "APPROVED", "version", 0)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/guestbook"))
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].author").value("匿名用户"));
+    long other = member("其他用户");
+    mvc.perform(
+            json(
+                delete("/api/v1/members/guestbook/" + id).param("version", "1").with(as(other)),
+                Map.of()))
+        .andExpect(status().isConflict());
+    mvc.perform(
+            json(
+                patch("/api/v1/admin/guestbook/" + id).with(user("admin").roles("ADMIN")),
+                Map.of("status", "REJECTED", "version", 1)))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/guestbook")).andExpect(jsonPath("$.data.total").value(0));
+    mvc.perform(
+            json(
+                post("/api/v1/guestbook"),
+                Map.of("content", "诱捕不入库", "color", "sky", "website", "bot")))
+        .andExpect(status().isOk());
+    assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM guestbook_entries", Integer.class));
+    for (int i = 0; i < 2; i++)
+      mvc.perform(json(post("/api/v1/guestbook"), input)).andExpect(status().isOk());
+    mvc.perform(json(post("/api/v1/guestbook"), input)).andExpect(status().isTooManyRequests());
   }
 
   @Test

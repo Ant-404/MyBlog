@@ -70,18 +70,17 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/members/**")
                     .hasRole("MEMBER")
-                    .requestMatchers(
-                        HttpMethod.POST,
-                        "/api/v1/posts/*/comments",
-                        "/api/v1/comments/*/reports",
-                        "/api/v1/guestbook")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/comments/*/reports")
                     .hasRole("MEMBER")
                     .requestMatchers(HttpMethod.GET, "/api/v1/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/rss.xml", "/sitemap.xml")
                     .permitAll()
                     .requestMatchers(
-                        HttpMethod.POST, "/api/v1/posts/*/comments", "/api/v1/posts/*/view")
+                        HttpMethod.POST,
+                        "/api/v1/posts/*/comments",
+                        "/api/v1/posts/*/view",
+                        "/api/v1/guestbook")
                     .permitAll()
                     .requestMatchers("/api/v1/auth/login", "/api/v1/auth/logout", "/error")
                     .permitAll()

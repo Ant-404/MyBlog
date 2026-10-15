@@ -1,5 +1,7 @@
 package com.myblog.member.repository;
 
+import static com.myblog.comment.repository.CommentRepository.publiclyVisible;
+
 import com.myblog.common.api.PageResponse;
 import com.myblog.common.exception.*;
 import java.util.*;
@@ -37,7 +39,7 @@ public class CommunityMemberRepository {
 
   public record Note(
       long id,
-      long memberId,
+      Long memberId,
       String author,
       String content,
       String color,
@@ -74,7 +76,9 @@ public class CommunityMemberRepository {
 
   private String noticeFilter() {
     return " FROM member_notifications n JOIN comments c ON c.id=n.comment_id JOIN posts p ON"
-        + " p.id=c.post_id WHERE n.member_id=? AND c.status='APPROVED' AND"
+        + " p.id=c.post_id WHERE n.member_id=? AND "
+        + publiclyVisible("c")
+        + " AND"
         + " p.status='PUBLISHED' AND p.published_at<=CURRENT_DATE";
   }
 
@@ -110,7 +114,9 @@ public class CommunityMemberRepository {
   public void report(long member, long comment, String reason) {
     if (jdbc.queryForObject(
             "SELECT COUNT(*) FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.id=? AND"
-                + " c.status='APPROVED' AND p.status='PUBLISHED' AND p.published_at<=CURRENT_DATE",
+                + " "
+                + publiclyVisible("c")
+                + " AND p.status='PUBLISHED' AND p.published_at<=CURRENT_DATE",
             Long.class,
             comment)
         != 1) throw new ResourceNotFoundException("评论不存在");
@@ -159,14 +165,14 @@ public class CommunityMemberRepository {
         owner != null ? " WHERE g.member_id=" + owner : admin ? "" : " WHERE g.status='APPROVED'";
     var items =
         jdbc.query(
-            "SELECT g.*,m.nickname FROM guestbook_entries g JOIN members m ON m.id=g.member_id"
+            "SELECT g.*,m.nickname FROM guestbook_entries g LEFT JOIN members m ON m.id=g.member_id"
                 + filter
                 + " ORDER BY g.id DESC LIMIT 20 OFFSET ?",
             (r, n) ->
                 new Note(
                     r.getLong("id"),
-                    r.getLong("member_id"),
-                    r.getString("nickname"),
+                    r.getObject("member_id", Long.class),
+                    r.getObject("member_id") == null ? "匿名用户" : r.getString("nickname"),
                     r.getString("content"),
                     r.getString("color"),
                     r.getString("status"),
@@ -180,7 +186,7 @@ public class CommunityMemberRepository {
         20);
   }
 
-  public void addNote(long member, String content, String color) {
+  public void addNote(Long member, String content, String color) {
     jdbc.update(
         "INSERT INTO guestbook_entries(member_id,content,color) VALUES (?,?,?)",
         member,

@@ -34,7 +34,7 @@ function MemberComments({ slug }: { slug: string }) {
       return { author: '', content: '' }
     }
   })
-  const author = member?.nickname || ''
+  const author = member?.nickname || '匿名用户'
   const [content, setContent] = useState(draft.content)
   const [draftStatus, setDraftStatus] = useState('')
   const [website, setWebsite] = useState('')
@@ -42,7 +42,7 @@ function MemberComments({ slug }: { slug: string }) {
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
   useEffect(() => {
-    if (!site.commentsEnabled || demoMode || !member) return
+    if (!site.commentsEnabled || demoMode || memberLoading) return
     const timer = setTimeout(() => {
       try {
         if (content.trim()) {
@@ -57,7 +57,7 @@ function MemberComments({ slug }: { slug: string }) {
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [author, content, draftKey, site.commentsEnabled])
+  }, [author, content, draftKey, site.commentsEnabled, memberLoading])
   async function submit() {
     if (!author.trim() || !content.trim() || busy) return
     setBusy(true)
@@ -72,7 +72,13 @@ function MemberComments({ slug }: { slug: string }) {
       }
       setContent('')
       setReply(null)
-      setMessage('评论已提交，审核通过后会显示在这里。')
+      setMessage(
+        member ? '评论已发布，管理员审核后可能调整展示。' : '评论已提交，审核通过后会显示在这里。',
+      )
+      if (member) {
+        setPage(1)
+        refresh()
+      }
     } catch (cause) {
       void refreshMember()
       setFailed(true)
@@ -86,8 +92,13 @@ function MemberComments({ slug }: { slug: string }) {
       <h2>
         留言<span className="count">{data?.total ?? '—'}</span>
       </h2>
-      <p className="muted">评论以纯文字展示，审核通过后公开。请勿留下私人联系方式。</p>
-      {site.commentsEnabled && !demoMode && member?.status === 'ACTIVE' ? (
+      <p className="muted">
+        注册用户的评论先展示后审核，匿名评论审核通过后公开。请勿留下私人联系方式。
+      </p>
+      {site.commentsEnabled &&
+      !demoMode &&
+      !memberLoading &&
+      (!member || member.status === 'ACTIVE') ? (
         <form
           className="comment-form"
           onSubmit={(event) => {
@@ -96,8 +107,17 @@ function MemberComments({ slug }: { slug: string }) {
           }}
         >
           <p className="comment-identity">
-            以 <strong>{author}</strong> <span>#{member.id} · 邮箱已验证</span> 发表评论{' '}
-            <Link to="/account">管理账号</Link>
+            {member ? (
+              <>
+                以 <strong>{author}</strong> <span>#{member.id} · 邮箱已验证</span> 发表评论{' '}
+                <Link to="/account">管理账号</Link>
+              </>
+            ) : (
+              <>
+                以 <strong>匿名用户</strong> 发表评论，审核后展示。{' '}
+                <Link to="/account">登录或注册</Link>后评论可立即展示。
+              </>
+            )}
           </p>
           {reply && (
             <p className="callout">
@@ -112,7 +132,7 @@ function MemberComments({ slug }: { slug: string }) {
             <textarea
               required
               maxLength={2000}
-              rows={4}
+              rows={2}
               value={content}
               disabled={busy}
               onChange={(e) => setContent(e.target.value)}
@@ -173,38 +193,43 @@ function MemberComments({ slug }: { slug: string }) {
                     comment.author
                   )}
                 </strong>
-                <small>{comment.memberId ? `#${comment.memberId} · 注册用户` : '历史游客'}</small>
+                <small>{comment.memberId ? `#${comment.memberId} · 注册用户` : '匿名用户'}</small>
                 <time>{comment.createdAt}</time>
               </div>
               {comment.replyTo && <p className="muted">回复 {comment.replyTo}</p>}
               <p>{comment.content}</p>
-              {member?.status === 'ACTIVE' && (
-                <div className="comment-actions">
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      setReply({ id: comment.id, author: comment.author })
-                      document
-                        .querySelector('.comment-form')
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                      document
-                        .querySelector<HTMLTextAreaElement>('.comment-form textarea')
-                        ?.focus({ preventScroll: true })
-                    }}
-                  >
-                    回复
-                  </button>
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      setReportId(comment.id)
-                      setReason('')
-                    }}
-                  >
-                    举报
-                  </button>
-                </div>
-              )}
+              {site.commentsEnabled &&
+                !demoMode &&
+                !memberLoading &&
+                (!member || member.status === 'ACTIVE') && (
+                  <div className="comment-actions">
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setReply({ id: comment.id, author: comment.author })
+                        document
+                          .querySelector('.comment-form')
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        document
+                          .querySelector<HTMLTextAreaElement>('.comment-form textarea')
+                          ?.focus({ preventScroll: true })
+                      }}
+                    >
+                      回复
+                    </button>
+                    {member && (
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setReportId(comment.id)
+                          setReason('')
+                        }}
+                      >
+                        举报
+                      </button>
+                    )}
+                  </div>
+                )}
               {reportId === comment.id && (
                 <form
                   className="member-form"

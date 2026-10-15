@@ -382,10 +382,11 @@ function MemberActivity({ action }: { action: (work: () => Promise<void>) => Pro
                 <small>
                   {
                     (
-                      { PENDING: '待审核', APPROVED: '已公开', REJECTED: '未通过' } as Record<
-                        string,
-                        string
-                      >
+                      {
+                        PENDING: '待审核',
+                        APPROVED: '已公开',
+                        REJECTED: '未通过',
+                      } as Record<string, string>
                     )[note.status]
                   }
                 </small>
@@ -428,10 +429,11 @@ function MemberActivity({ action }: { action: (work: () => Promise<void>) => Pro
                 <small>
                   {
                     (
-                      { PENDING: '待审核', APPROVED: '已公开', REJECTED: '未通过' } as Record<
-                        string,
-                        string
-                      >
+                      {
+                        PENDING: '已展示 · 待审核',
+                        APPROVED: '已公开',
+                        REJECTED: '未通过',
+                      } as Record<string, string>
                     )[comment.status]
                   }
                 </small>

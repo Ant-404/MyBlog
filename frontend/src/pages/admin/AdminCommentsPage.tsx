@@ -20,6 +20,7 @@ export default function AdminCommentsPage() {
           评论审核<span className="heading-dot">.</span>
         </h1>
       </div>
+      <p className="muted">注册用户先展示后审核，匿名评论审核通过后展示；拒绝会隐藏评论。</p>
       <div className="card admin-list-toolbar">
         <label>
           评论状态{' '}
@@ -50,7 +51,9 @@ export default function AdminCommentsPage() {
               <div className="comment-actions">
                 <span>
                   {comment.status === 'PENDING'
-                    ? '待审核'
+                    ? comment.memberId
+                      ? '已展示 · 待审核'
+                      : '未展示 · 待审核'
                     : comment.status === 'APPROVED'
                       ? '已通过'
                       : '已拒绝'}

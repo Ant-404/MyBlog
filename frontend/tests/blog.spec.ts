@@ -15,6 +15,13 @@ test('simplified navigation groups article browsing and keeps only two footer li
     '关于',
   ])
   await expect(page.locator('.site-footer a')).toHaveText(['Mizuki', '管理后台'])
+  const originalUrl = page.url()
+  const popupPromise = page.waitForEvent('popup')
+  await page.locator('.site-footer').getByRole('link', { name: '管理后台' }).click()
+  const adminWindow = await popupPromise
+  await expect(adminWindow).toHaveURL(/\/admin\/login$/)
+  expect(page.url()).toBe(originalUrl)
+  await adminWindow.close()
   await expect(page.getByRole('button', { name: '随机漫游' })).toHaveCount(0)
   await mainNav.getByRole('link', { name: '文章', exact: true }).click()
   const browse = page.getByRole('navigation', { name: '文章浏览方式' })
