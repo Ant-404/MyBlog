@@ -29,8 +29,8 @@ spring:
       mail.smtp.writetimeout: 5000
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 6MB
+      max-file-size: 50MB
+      max-request-size: 56MB
   datasource:
     url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:MyBlog}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: ${DB_USERNAME:root}
@@ -54,6 +54,8 @@ blog:
     mail-enabled: ${MEMBER_MAIL_ENABLED:false}
     mail-from: ${SMTP_FROM:${SMTP_USERNAME:}}
   music:
+    directory: ${MUSIC_DIRECTORY:${blog.media.directory}/music}
+    source-directory: ${MUSIC_SOURCE_DIRECTORY:}
     meting-api: ${METING_API_URL:https://api.i-meto.com/meting/api}
   media:
     directory: ${UPLOAD_DIRECTORY:./uploads}

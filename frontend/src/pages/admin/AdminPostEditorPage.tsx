@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { ArrowLeft, Save, Send, Eye } from 'lucide-react'
 import { adminPostsApi } from '../../api/adminPosts'
@@ -10,15 +10,16 @@ import DataState from '../../components/common/DataState'
 import MarkdownEditor from '../../components/admin/MarkdownEditor'
 import MediaLibrary from '../../components/admin/MediaLibrary'
 import type { PostInput, AdminPost } from '../../types/adminPost'
+import { readingStats } from '../../utils/postMetadata'
 
 function emptyPost(): PostInput {
   return {
     title: '',
-    slug: '',
+    slug: `post-${crypto.randomUUID()}`,
     excerpt: '',
     content: '',
     cover: '/images/landscape.svg',
-    category: '随笔',
+    category: '',
     tags: [],
     publishedAt: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }),
     readingMinutes: 1,
@@ -52,7 +53,6 @@ export default function AdminPostEditorPage() {
   usePageTitle(isNew ? '新建文章' : '编辑文章')
   const [form, setForm] = useState<PostInput>(emptyPost)
   const [baseline, setBaseline] = useState('')
-  const [tagsText, setTagsText] = useState('')
   const saving = useRef(false)
   const editorForm = useRef<HTMLFormElement>(null)
   const [mediaTarget, setMediaTarget] = useState<'cover' | 'content' | null>(null)
@@ -66,25 +66,23 @@ export default function AdminPostEditorPage() {
     [isNew, id],
   )
   const { data, loading, error, errorStatus, refresh } = useAsyncData(fetchPost)
-  const { data: options } = useAsyncData(adminPostsApi.options)
-  const dirty =
-    baseline !== '' &&
-    JSON.stringify({
-      ...form,
-      tags: tagsText
-        .split(/[,，]/)
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    }) !== baseline
+  const {
+    data: options,
+    loading: optionsLoading,
+    error: optionsError,
+    errorStatus: optionsStatus,
+    refresh: refreshOptions,
+  } = useAsyncData(adminPostsApi.options)
+  const reading = useMemo(() => readingStats(form.content), [form.content])
+  const dirty = baseline !== '' && JSON.stringify(form) !== baseline
   const allowNavigation = useUnsavedChanges(dirty)
   useEffect(() => {
-    if (errorStatus === 401) expire()
-  }, [errorStatus, expire])
+    if (errorStatus === 401 || optionsStatus === 401) expire()
+  }, [errorStatus, optionsStatus, expire])
   useEffect(() => {
     if (loading || error) return
     const next = data ? fromPost(data) : emptyPost()
     setForm(next)
-    setTagsText(next.tags.join(', '))
     setBaseline(JSON.stringify(next))
     setSaved('')
     setActionError('')
@@ -102,17 +100,19 @@ export default function AdminPostEditorPage() {
       title: form.title.trim(),
       slug: form.slug.trim(),
       category: form.category.trim(),
-      tags: [
-        ...new Set(
-          tagsText
-            .split(/[,，]/)
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-        ),
-      ],
+      tags: [...new Set(form.tags)],
+      readingMinutes: reading.minutes,
     }
     if (!input.title || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.slug) || !input.category) {
       setActionError('请填写标题、分类和有效的文章地址（小写英文、数字与短横线）。')
+      return
+    }
+    if (
+      !options ||
+      !options.categories.includes(input.category) ||
+      input.tags.some((tag) => !options.tags.includes(tag))
+    ) {
+      setActionError('请选择已有分类和标签；选项失效时请刷新选项后重新选择。')
       return
     }
     if (status === 'PUBLISHED' && !input.content.trim()) {
@@ -133,7 +133,6 @@ export default function AdminPostEditorPage() {
         : await adminPostsApi.update(Number(id), input)
       const next = fromPost(result)
       setForm(next)
-      setTagsText(next.tags.join(', '))
       setBaseline(JSON.stringify(next))
       setAutoPaused(false)
       setSaved(
@@ -164,7 +163,7 @@ export default function AdminPostEditorPage() {
       if (editorForm.current?.checkValidity()) void save('DRAFT', true)
     }, 3000)
     return () => window.clearTimeout(timer)
-  }, [autoSave, autoPaused, existingDraft, dirty, busy, loading, error, form, tagsText, baseline])
+  }, [autoSave, autoPaused, existingDraft, dirty, busy, loading, error, form, baseline, options])
   const autoMessage = autoPaused
     ? '自动保存已暂停，请处理错误后手动保存。'
     : isNew
@@ -298,7 +297,7 @@ export default function AdminPostEditorPage() {
             <div className="editor-label-line">
               <label htmlFor="post-content">正文（Markdown）</label>
               <span>
-                {form.content.length} 字符{dirty ? ' · 尚未保存' : ''}
+                {reading.words} 字 · 约 {reading.minutes} 分钟{dirty ? ' · 尚未保存' : ''}
               </span>
             </div>
             <button
@@ -328,35 +327,73 @@ export default function AdminPostEditorPage() {
               maxLength={160}
               disabled={busy}
             />
-            <small>使用小写英文、数字与短横线。修改后旧地址会失效。</small>
+            <small>新文章自动生成唯一地址，也可自定义。修改已有地址会使旧链接失效。</small>
+            {optionsError && (
+              <p className="form-error" role="alert">
+                分类和标签加载失败：{optionsError}
+                <button type="button" className="text-button" onClick={refreshOptions}>
+                  刷新选项
+                </button>
+              </p>
+            )}
             <label htmlFor="post-category">分类</label>
-            <input
+            <select
               id="post-category"
-              list="post-category-options"
               value={form.category}
               onChange={(event) => field('category', event.target.value)}
               required
-              maxLength={64}
-              disabled={busy}
-            />
-            <datalist id="post-category-options">
+              disabled={busy || optionsLoading || !!optionsError}
+            >
+              <option value="">{optionsLoading ? '正在加载分类…' : '请选择分类'}</option>
+              {form.category && !options?.categories.includes(form.category) && (
+                <option value={form.category} disabled>
+                  {form.category}（请刷新并重新选择）
+                </option>
+              )}
               {options?.categories.map((name) => (
-                <option key={name} value={name} />
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
-            </datalist>
-            <small>选择已有分类，或输入新分类。</small>
-            <label htmlFor="post-tags">标签</label>
-            <input
-              id="post-tags"
-              value={tagsText}
-              onChange={(event) => {
-                setTagsText(event.target.value)
-                setSaved('')
-              }}
-              placeholder="例如 React, 学习笔记"
-              disabled={busy}
-            />
-            <small>用逗号分隔，最多 12 个。</small>
+            </select>
+            <small>
+              <Link to="/admin/taxonomy" target="_blank" rel="noopener noreferrer">
+                管理分类与标签
+              </Link>
+              （新窗口），返回后可
+              <button type="button" className="text-button" onClick={refreshOptions}>
+                刷新选项
+              </button>
+              。
+            </small>
+            <fieldset
+              className="post-tag-options"
+              disabled={busy || optionsLoading || !!optionsError}
+            >
+              <legend>标签</legend>
+              {[...new Set([...(options?.tags || []), ...form.tags])].map((tag) => (
+                <label className="checkbox-label" key={tag}>
+                  <input
+                    type="checkbox"
+                    checked={form.tags.includes(tag)}
+                    disabled={!form.tags.includes(tag) && form.tags.length >= 12}
+                    onChange={(event) =>
+                      field(
+                        'tags',
+                        event.target.checked
+                          ? [...form.tags, tag]
+                          : form.tags.filter((item) => item !== tag),
+                      )
+                    }
+                  />
+                  {tag}
+                </label>
+              ))}
+              {!optionsLoading && !optionsError && !options?.tags.length && (
+                <small>暂无标签，可先到内容组织中添加。</small>
+              )}
+            </fieldset>
+            <small>已选 {form.tags.length} / 12 个，标签可不选。</small>
             <label htmlFor="post-date">发布日期</label>
             <input
               id="post-date"
@@ -373,11 +410,12 @@ export default function AdminPostEditorPage() {
               type="number"
               min={1}
               max={240}
-              value={form.readingMinutes}
-              onChange={(event) => field('readingMinutes', Number(event.target.value))}
-              required
-              disabled={busy}
+              value={reading.minutes}
+              readOnly
             />
+            <small>
+              根据正文文字和代码自动估算：每分钟 400 字，至少 1 分钟，不计 Markdown 标记及图片地址。
+            </small>
             <label htmlFor="post-cover">封面地址</label>
             <input
               id="post-cover"

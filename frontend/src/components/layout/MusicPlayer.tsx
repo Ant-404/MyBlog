@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Disc3,
-  ExternalLink,
   ListMusic,
   Music2,
   Pause,
@@ -16,7 +15,7 @@ import {
   Shuffle,
 } from 'lucide-react'
 import { musicApi } from '../../api/music'
-import type { MusicTrack } from '../../types/music'
+import type { MusicSettings, MusicTrack } from '../../types/music'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
 
@@ -28,8 +27,53 @@ function time(value: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
+function TrackCover({ src }: { src: string }) {
+  const [failed, setFailed] = useState('')
+  return (
+    <span className="music-track-cover" aria-hidden="true">
+      {src && src !== failed ? (
+        <img src={src} alt="" loading="lazy" onError={() => setFailed(src)} />
+      ) : (
+        <Disc3 size={20} />
+      )}
+    </span>
+  )
+}
+
 export default function MusicPlayer() {
-  const { data, loading, error: loadError, refresh } = useAsyncData(musicApi.publicSettings)
+  const {
+    data: initialData,
+    loading,
+    error: loadError,
+    refresh,
+  } = useAsyncData(musicApi.publicSettings)
+  const [updatedData, setUpdatedData] = useState<MusicSettings>()
+  const data = updatedData || initialData
+  useEffect(() => {
+    let active = true
+    let sequence = 0
+    async function sync() {
+      const current = ++sequence
+      try {
+        const value = await musicApi.publicSettings()
+        if (active && current === sequence) setUpdatedData(value)
+      } catch {
+        /* Preserve playback until the next successful refresh. */
+      }
+    }
+    function onStorage(event: StorageEvent) {
+      if (event.key === 'myblog-music-updated') void sync()
+    }
+    window.addEventListener('music-settings-updated', sync)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', sync)
+    return () => {
+      active = false
+      window.removeEventListener('music-settings-updated', sync)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', sync)
+    }
+  }, [])
   const [expanded, setExpanded] = useState(false)
   const [showList, setShowList] = useState(false)
   const [selectedId, setSelectedId] = useState<number | undefined>(() => {
@@ -71,6 +115,7 @@ export default function MusicPlayer() {
       title: track.title,
       artist: track.artist || '',
       album: data.name,
+      artwork: track.cover ? [{ src: track.cover }] : [],
     })
     const actions: [MediaSessionAction, MediaSessionActionHandler][] = [
       ['play', () => void play()],
@@ -109,10 +154,6 @@ export default function MusicPlayer() {
   }, [playing])
 
   useEffect(() => {
-    window.addEventListener('music-settings-updated', refresh)
-    return () => window.removeEventListener('music-settings-updated', refresh)
-  }, [refresh])
-  useEffect(() => {
     if (audio.current) audio.current.volume = Number(volume) / 100
   }, [volume, data?.enabled])
   async function play() {
@@ -128,7 +169,7 @@ export default function MusicPlayer() {
       )
         return
       wantsPlay.current = false
-      setError('暂时无法播放这首歌，请重试、切歌或前往 QQ 音乐。')
+      setError('暂时无法播放这首歌，请重试或切换歌曲。')
     }
   }
   function pause() {
@@ -191,7 +232,7 @@ export default function MusicPlayer() {
         onError={() => {
           wantsPlay.current = false
           setPlaying(false)
-          setError('音源暂时不可用，可切换歌曲或前往 QQ 音乐收听。')
+          setError('这首本地音乐暂时无法播放，请切换歌曲或稍后重试。')
         }}
       />
       {expanded && (
@@ -215,7 +256,7 @@ export default function MusicPlayer() {
             </p>
           ) : loadError ? (
             <div className="music-empty">
-              <p>歌单暂时加载失败，请确认后端已更新并启动。</p>
+              <p>本地歌单暂时加载失败，请刷新页面后重试。</p>
               <button className="text-button" onClick={refresh}>
                 重新加载歌单
               </button>
@@ -229,7 +270,7 @@ export default function MusicPlayer() {
                 <div>
                   <strong>{track.title}</strong>
                   <span>{track.artist || '未知歌手'}</span>
-                  <small>来自 QQ 音乐公开歌单</small>
+                  <small>本地音乐</small>
                 </div>
               </div>
               <div className="music-timeline">
@@ -311,9 +352,6 @@ export default function MusicPlayer() {
                   aria-label="音乐音量"
                   onChange={(event) => setVolume(event.target.value)}
                 />
-                <a href={track.sourceUrl} target="_blank" rel="noopener noreferrer">
-                  QQ 音乐 <ExternalLink size={12} />
-                </a>
               </div>
               {error && (
                 <p className="music-error" role="status">
@@ -331,7 +369,8 @@ export default function MusicPlayer() {
                         onClick={() => select(item, true)}
                       >
                         <span className="track-number">{itemIndex + 1}</span>
-                        <span>
+                        <TrackCover src={item.cover} />
+                        <span className="music-track-copy">
                           <strong>{item.title}</strong>
                           <small>{item.artist}</small>
                         </span>
@@ -345,18 +384,8 @@ export default function MusicPlayer() {
           ) : (
             <div className="music-empty">
               <Disc3 size={30} />
-              <p>歌单还没有歌曲，等主人分享下一首。</p>
+              <p>暂时还没有本地音乐，等主人分享下一首。</p>
             </div>
-          )}
-          {data?.profileUrl && (
-            <a
-              className="music-profile"
-              href={data.profileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              我的 QQ 音乐主页 <ExternalLink size={12} />
-            </a>
           )}
         </section>
       )}

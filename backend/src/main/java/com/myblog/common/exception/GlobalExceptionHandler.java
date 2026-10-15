@@ -34,7 +34,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
   public ResponseEntity<ApiResponse<Void>> uploadTooLarge(Exception exception) {
-    return ResponseEntity.status(413).body(ApiResponse.failure("FILE_TOO_LARGE", "图片不能超过 5MB"));
+    return ResponseEntity.status(413)
+        .body(ApiResponse.failure("FILE_TOO_LARGE", "上传文件过大：音乐不能超过 50MB，图片不能超过 5MB"));
   }
 
   @ExceptionHandler(ConflictException.class)

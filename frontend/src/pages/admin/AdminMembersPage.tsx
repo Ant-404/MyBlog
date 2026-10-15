@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { memberApi } from '../../api/members'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { useAdminAction } from '../../hooks/useAdminAction'
@@ -17,7 +18,10 @@ const names: Record<string, string> = {
 }
 export default function AdminMembersPage() {
   usePageTitle('用户与社区')
-  const [tab, setTab] = useState('members')
+  const [params, setParams] = useSearchParams()
+  const tab = ['members', 'reports', 'notes'].includes(params.get('tab') || '')
+    ? params.get('tab')!
+    : 'members'
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -47,7 +51,7 @@ export default function AdminMembersPage() {
               key={key}
               aria-pressed={tab === key}
               onClick={() => {
-                setTab(key)
+                setParams({ tab: key })
                 setPage(1)
               }}
             >

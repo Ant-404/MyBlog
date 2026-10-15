@@ -21,7 +21,6 @@ const GuestbookPage = lazy(() => import('../pages/GuestbookPage'))
 const AdminMembersPage = lazy(() => import('../pages/admin/AdminMembersPage'))
 const AdminProjectsPage = lazy(() => import('../pages/admin/AdminProjectsPage'))
 const AdminSeriesPage = lazy(() => import('../pages/admin/AdminSeriesPage'))
-const AdminMomentsPage = lazy(() => import('../pages/admin/AdminMomentsPage'))
 const AdminAnimePage = lazy(() => import('../pages/admin/AdminAnimePage'))
 const AdminMusicPage = lazy(() => import('../pages/admin/AdminMusicPage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
@@ -66,7 +65,7 @@ export const router = createBrowserRouter([
       { path: 'music', element: page(AdminMusicPage) },
       { path: 'projects', element: page(AdminProjectsPage) },
       { path: 'series', element: page(AdminSeriesPage) },
-      { path: 'moments', element: page(AdminMomentsPage) },
+      { path: 'moments', element: <Navigate to="/admin/members?tab=notes" replace /> },
       { path: 'settings', element: page(AdminSettingsPage) },
       { path: 'comments', element: page(AdminCommentsPage) },
       { path: 'statistics', element: page(AdminStatisticsPage) },

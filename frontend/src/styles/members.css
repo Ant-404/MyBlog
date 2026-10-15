@@ -495,8 +495,7 @@
 .weather-paused i {
   animation-play-state: paused;
 }
-.hero .hero-inner,
-.hero .hero-controls {
+.hero .hero-inner {
   z-index: 2;
 }
 @keyframes weather-fall {

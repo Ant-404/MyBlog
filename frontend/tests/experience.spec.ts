@@ -1,21 +1,16 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { loginMember } from './helpers/member'
+import { localMusic } from './helpers/music'
 
-test('wave crests rise and fall continuously and freeze when paused', async ({ page }) => {
+test('wave crests rise and fall continuously and respect motion preferences', async ({ page }) => {
   await page.goto('/')
   const crest = page.locator('.wave-layer-2 path')
   const transform = () => crest.evaluate((node) => getComputedStyle(node).transform)
   const scale = async () => Number((await transform()).split(',')[3])
   const initial = await scale()
   await expect.poll(async () => Math.abs((await scale()) - initial)).toBeGreaterThan(0.08)
-  await page.getByRole('button', { name: '暂停横幅动画' }).click()
-  await crest.evaluate(async (node) => {
-    await Promise.all(node.getAnimations().map((animation) => animation.ready))
-  })
-  const paused = await transform()
-  await page.waitForTimeout(500)
-  expect(await transform()).toBe(paused)
+  await expect(page.getByRole('button', { name: /[播放暂停]+横幅动画/ })).toHaveCount(0)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   expect(await crest.evaluate((node) => getComputedStyle(node).animationName)).toBe('none')
 })
@@ -35,7 +30,7 @@ async function banners(
   )
 }
 
-test('banner changes without repeating and pause/reduced motion stop automatic changes', async ({
+test('banner cycles automatically without a play button and respects reduced motion', async ({
   page,
 }) => {
   await page.clock.install()
@@ -43,21 +38,21 @@ test('banner changes without repeating and pause/reduced motion stop automatic c
   await page.goto('/')
   const current = page.locator('.hero-picture-current')
   const initial = await current.getAttribute('src')
-  await page.getByRole('button', { name: '随机切换横幅' }).click()
+  await page.clock.runFor(13000)
   await expect(current).not.toHaveAttribute('src', initial!)
-  await page.getByRole('button', { name: '暂停横幅动画' }).click()
-  const paused = await current.getAttribute('src')
+  const second = await current.getAttribute('src')
   await page.clock.runFor(13000)
-  await expect(current).toHaveAttribute('src', paused!)
-  expect(
-    await page
-      .locator('.wave-layer')
-      .first()
-      .evaluate((node) => getComputedStyle(node).animationPlayState),
-  ).toBe('paused')
-  await page.getByRole('button', { name: '播放横幅动画' }).click()
-  await page.clock.runFor(13000)
-  await expect(current).not.toHaveAttribute('src', paused!)
+  await expect(current).not.toHaveAttribute('src', second!)
+  const automatic = await current.getAttribute('src')
+  await page
+    .getByRole('button', { name: '切换横幅图片', exact: true })
+    .click({ position: { x: 25, y: 80 } })
+  await expect(current).not.toHaveAttribute('src', automatic!)
+  const clicked = await current.getAttribute('src')
+  await page.getByRole('button', { name: '切换横幅图片', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(current).not.toHaveAttribute('src', clicked!)
+  await expect(page.getByRole('button', { name: /[播放暂停]+横幅动画/ })).toHaveCount(0)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const reduced = await current.getAttribute('src')
   await page.clock.runFor(13000)
@@ -193,29 +188,7 @@ test('anime filters persist in the URL and work with browser navigation', async 
 test('music remembers playback mode and last track without autoplaying after reload', async ({
   page,
 }) => {
-  await page.route('**/api/v1/music', (route) =>
-    route.fulfill({
-      json: {
-        code: 200,
-        message: 'ok',
-        data: {
-          enabled: true,
-          name: '测试歌单',
-          profileUrl: '',
-          playlistId: '',
-          version: 1,
-          tracks: [1, 2, 3].map((id) => ({
-            id,
-            title: `歌曲 ${id}`,
-            artist: '测试歌手',
-            audioUrl: '',
-            cover: '',
-            sourceUrl: 'https://y.qq.com/',
-          })),
-        },
-      },
-    }),
-  )
+  await localMusic(page)
   await page.goto('/')
   await page.getByRole('button', { name: '展开音乐播放器' }).click()
   await page.getByRole('button', { name: '播放模式：列表循环' }).click()

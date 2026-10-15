@@ -2,30 +2,19 @@
 
 ## 启用新功能
 
-先停止后端，手动执行唯一的 `database/MyBlog.sql`（可整文件执行），补齐追番、播放器配置和歌曲表；已有数据保留。然后在 IDEA 中重新运行 `MyBlogApplication`。后端不自动迁移数据库。前端开发服务更新后，刷新浏览器即可。
+本地音乐不需要数据库升级。首次更新此功能后重启后端，再进入 `/admin/music` 使用上传和编辑功能。追番等原有数据库功能仍按已有升级块维护。
 
-## QQ 音乐
+## 本地音乐
 
-进入后台 `/admin/music`：
+1. 后台点击「上传音乐」，支持 MP3、WAV、OGG、M4A、AAC、FLAC、OPUS、WEBM，最多 50MB，浏览器编解码支持因格式而异。
+2. 上传时用 `歌手 - 歌名.mp3` 自动填资料；点击「编辑」可修改歌名和歌手，点击「更换封面」上传图片，封面最多 5MB。可转换的图片由浏览器转 PNG，后端校验 JPEG/PNG 内容并重新编码。
+3. 保存后音乐库立即更新，已打开的播放器通过同页事件、跨页签通知和窗口重新激活刷新资料；仅改歌名/封面不会切断当前播放。并发编辑有版本校验，冲突后需刷新再修改。
+4. 已有 `frontend/public/music/` 中的歌曲继续兼容，资料编辑不会改动原音频。支持同名图片或 `cover` 默认封面。生产部署通过 `MUSIC_SOURCE_DIRECTORY` 指定原有歌曲目录。
+5. 新上传的音频、封面和 `library.json` 保存在后端音乐目录，默认 `${UPLOAD_DIRECTORY}/music`，可配置 `MUSIC_DIRECTORY`。必须一起备份；后台上传不需要重新构建前端。
 
-1. 填写播放器标题。
-2. 可选填写自己的 QQ 音乐公开主页链接。它是公开主页关联，不是登录账号或读取私有资料。
-3. 将自己的歌单设置为公开，填写完整网页链接或数字 ID，例如 `https://y.qq.com/n/ryqq/playlist/1234567890`。支持链接中的 `id`、`disstid`、`tid` 参数；短分享链接请先在浏览器打开，再复制最终网页地址。
-4. 勾选「启用前台播放器」，点击「导入并保存歌单」。
+播放器位于前台左下角，支持播放/暂停、上一首/下一首、进度拖动、音量与静音、列表循环、单曲循环、随机播放和播放列表。同一前台布局内切换页面继续播放。首次播放需访客点击，刷新后不会自动播放。空目录显示等待分享的提示。
 
-播放器位于前台左下角，支持播放/暂停、上一首/下一首、进度拖动、音量与静音、播放列表和 QQ 音乐跳转。同一前台布局内切换文章、归档、追番等页面会继续播放；进入后台或离开网站时停止。不自动播放，首次播放需要访客点击。音量保存在当前浏览器，刷新后不会自动恢复播放。
-
-「仅保存显示设置」用于修改标题、公开主页和启用开关，不更新曲目。更换歌单或更新音源需要重新导入。失败时原配置及曲目保留；成功时替换原曲目，最多保存前 100 首可解析歌曲。「清空歌单并关闭播放器」需确认，会移除当前导入曲目。
-
-当前实现通过第三方 **Meting 兼容服务**解析公开 QQ 歌单，没有集成 QQ 音乐登录授权，也不保存 QQ 密码、Cookie 或私有歌单。公开歌单中的付费、地区受限或失效音源仍可能无法播放，播放器会提示并保留 QQ 音乐入口。导入成功代表拿到了歌曲列表和音源地址，不保证每首歌曲此后一直可播放。
-
-默认解析服务为 `https://api.i-meto.com/meting/api`。可在 `backend/.env` 配置自己维护或信任的兼容服务：
-
-```dotenv
-METING_API_URL=https://your-meting-service.example/api
-```
-
-修改后重启后端。服务端只向配置的解析端点请求 `server=tencent&type=playlist&id=数字ID`，不会抓取用户任意填写的地址；解析请求有连接和读取超时、响应体大小限制、音源地址校验。公开读取播放器配置使用已保存数据，不会每次访问都请求解析服务。浏览器直接从返回的音源地址播放，音源的可用性和访问记录由对应服务处理。
+前台请求 `/api/v1/music/local`，不再请求 QQ/Meting。后端尚未更新而返回 404 时，前台临时使用构建时目录列表；后台上传编辑必须使用新后端。旧数据库歌单和接口保留兼容，不会被本地音乐覆盖。仅支持单后端实例管理音乐资料。
 
 ## 追番记录
 
@@ -49,10 +38,11 @@ METING_API_URL=https://your-meting-service.example/api
 | --- | --- |
 | 追番前台/后台页面 | `frontend/src/pages/AnimePage.tsx`、`frontend/src/pages/admin/AdminAnimePage.tsx` |
 | 音乐后台页面 | `frontend/src/pages/admin/AdminMusicPage.tsx` |
+| 本地歌曲扫描与目录 | `frontend/build/localMusic.ts`、`frontend/public/music/` |
 | 持续播放组件 | `frontend/src/components/layout/MusicPlayer.tsx`，由 `BlogLayout` 挂载 |
 | 新增样式 | `frontend/src/styles/leisure.css` |
 | 色相条/亮度计算 | `AppearanceSettings.tsx`、`frontend/src/utils/theme.ts` |
 | 后端 | `backend/src/main/java/com/myblog/anime`、`backend/src/main/java/com/myblog/music` |
 | 唯一数据库脚本 | `database/MyBlog.sql`（顶部附更新备注，手动执行） |
 
-浏览器测试使用 `tests/fixtures/music-server.mjs` 的本地 Meting 响应及静音 WAV 音源，不依赖 QQ 账号，也不会把测试音源部署到生产。运行 `npm run test:e2e` 会启动该测试服务、H2 后端与测试前端。
+本地音乐的浏览器测试通过 `tests/helpers/music.ts` 拦截歌曲列表并提供静音 WAV，扫描测试使用系统临时目录；测试音源不会写入用户音乐目录或进入生产构建。旧 Meting 测试服务保留给历史接口验证。运行 `npm run test:e2e` 会启动测试服务、H2 后端与测试前端。

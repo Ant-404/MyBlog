@@ -1,5 +1,94 @@
 import { test, expect } from '@playwright/test'
 import { login, adminMutation } from './helpers/admin'
+import { localMusic, testTracks } from './helpers/music'
+
+test('local music plays continuously between public routes and appears in admin', async ({
+  page,
+}) => {
+  await localMusic(
+    page,
+    testTracks.map((track, index) => ({
+      ...track,
+      cover: index === 0 ? '/images/landscape.svg' : '',
+    })),
+  )
+  const remoteRequests: string[] = []
+  page.on('request', (request) => {
+    if (/qq\.com|meting/.test(request.url())) remoteRequests.push(request.url())
+  })
+  await login(page)
+  await page.goto('/admin/music')
+  await expect(page.locator('.admin-track-list li')).toHaveCount(3)
+  await expect(page.getByRole('link', { name: '试听 歌曲 1', exact: true })).toHaveAttribute(
+    'href',
+    '/music/test-1.wav',
+  )
+  await expect(page.getByLabel('QQ 音乐歌单链接或 ID')).toHaveCount(0)
+  await page.goto('/')
+  await page.getByRole('button', { name: '展开音乐播放器' }).click()
+  const audio = page.locator('.music-widget audio')
+  expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
+  await page.getByRole('button', { name: '播放音乐', exact: true }).click()
+  await expect
+    .poll(() => audio.evaluate((node: HTMLAudioElement) => node.currentTime))
+    .toBeGreaterThan(0)
+  const audioHandle = await audio.elementHandle()
+  await page
+    .getByRole('navigation', { name: '主导航' })
+    .getByRole('link', { name: '文章', exact: true })
+    .click()
+  await page
+    .getByRole('navigation', { name: '文章浏览方式' })
+    .getByRole('link', { name: '归档', exact: true })
+    .click()
+  await expect(page.locator('.archive-row')).toHaveCount(6)
+  expect(await audioHandle!.evaluate((node) => node.isConnected)).toBe(true)
+  expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
+  await page.getByRole('button', { name: '下一首', exact: true }).click()
+  await expect(page.locator('.music-now-playing strong')).toHaveText('歌曲 2')
+  await expect.poll(() => audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
+  await page.getByRole('button', { name: '暂停音乐', exact: true }).click()
+  expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
+  await page.getByRole('slider', { name: '音乐音量' }).press('Home')
+  expect(await audio.evaluate((node: HTMLAudioElement) => node.volume)).toBe(0)
+  await page.getByRole('button', { name: '显示或隐藏播放列表' }).click()
+  await expect(page.locator('.music-track-list li')).toHaveCount(3)
+  await expect(
+    page.locator('.music-track-list li').first().locator('.music-track-cover img'),
+  ).toHaveAttribute('src', '/images/landscape.svg')
+  await expect(
+    page.locator('.music-track-list li').nth(1).locator('.music-track-cover svg'),
+  ).toBeVisible()
+  await page.screenshot({ path: '../docs/screenshots/music-player-local.png' })
+  expect(remoteRequests).toEqual([])
+})
+
+test('unavailable local audio gives a useful error and the player fits mobile screens', async ({
+  page,
+}) => {
+  await localMusic(page, [
+    { id: 1, title: '不可用音源', artist: '测试', audioUrl: '/music/missing.wav', cover: '' },
+  ])
+  await page.route('**/music/missing.wav', (route) => route.fulfill({ status: 404, body: '' }))
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.getByRole('button', { name: '展开音乐播放器' }).click()
+  await page.getByRole('button', { name: '播放音乐', exact: true }).click()
+  await expect(page.locator('.music-error')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'QQ 音乐', exact: true })).toHaveCount(0)
+  for (const width of [320, 390, 640, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
+test('an empty local music directory shows a clear empty state', async ({ page }) => {
+  await localMusic(page, [])
+  await page.goto('/')
+  await page.getByRole('button', { name: '展开音乐播放器' }).click()
+  await expect(page.locator('.music-empty')).toContainText('暂时还没有本地音乐')
+  await expect(page.getByRole('button', { name: '播放音乐', exact: true })).toHaveCount(0)
+})
 
 test('continuous hue persists and the night background has no dot texture', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
@@ -65,106 +154,5 @@ test('anime records can be managed and displayed in a separate public page', asy
       const entry = entries.find((item: { id: number }) => item.id === id)
       if (entry) await adminMutation(page, `/admin/anime/${id}?version=${entry.version}`, 'DELETE')
     }
-  }
-})
-
-test('QQ import uses the backend and music plays continuously between public routes', async ({
-  page,
-}) => {
-  await login(page)
-  let imported = false
-  try {
-    await page.goto('/admin/music')
-    await expect(page.getByLabel('播放器标题')).toBeVisible()
-    await page.getByLabel('播放器标题').fill('测试耳边电台')
-    await page.getByLabel('QQ 音乐歌单链接或 ID').fill('https://y.qq.com/n/ryqq/playlist/10001')
-    await page.getByLabel('QQ 音乐公开主页').fill('https://y.qq.com/n/ryqq/profile/test')
-    await page.getByLabel('启用前台播放器').check()
-    await page.getByRole('button', { name: '导入并保存歌单' }).click()
-    await expect(page.locator('.admin-track-list li')).toHaveCount(2)
-    imported = true
-    await page.goto('/')
-    await page.getByRole('button', { name: '展开音乐播放器' }).click()
-    const audio = page.locator('.music-widget audio')
-    expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
-    await page.getByRole('button', { name: '播放音乐', exact: true }).click()
-    await expect(page.getByRole('button', { name: '暂停音乐', exact: true })).toBeVisible()
-    await expect
-      .poll(() => audio.evaluate((node: HTMLAudioElement) => node.currentTime))
-      .toBeGreaterThan(0)
-    const audioHandle = await audio.elementHandle()
-    await page
-      .getByRole('navigation', { name: '主导航' })
-      .getByRole('link', { name: '归档', exact: true })
-      .click()
-    await expect(page.locator('.archive-row')).toHaveCount(6)
-    expect(await audioHandle!.evaluate((node) => node.isConnected)).toBe(true)
-    expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
-    await page.getByRole('button', { name: '下一首', exact: true }).click()
-    await expect(page.locator('.music-now-playing strong')).toHaveText('测试音乐 2')
-    await expect.poll(() => audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
-    await page.getByRole('button', { name: '暂停音乐', exact: true }).click()
-    expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
-    await page.getByRole('slider', { name: '音乐音量' }).focus()
-    await page.getByRole('slider', { name: '音乐音量' }).press('Home')
-    expect(await audio.evaluate((node: HTMLAudioElement) => node.volume)).toBe(0)
-    await page.getByRole('button', { name: '显示或隐藏播放列表' }).click()
-    await expect(page.locator('.music-track-list li')).toHaveCount(2)
-    await page.screenshot({ path: '../docs/screenshots/music-player.png' })
-    await page.goto('/admin/music')
-    await expect(page.getByLabel('QQ 音乐歌单链接或 ID')).toHaveValue('10001')
-    await page.getByLabel('QQ 音乐歌单链接或 ID').fill('99999')
-    await page.getByRole('button', { name: '导入并保存歌单' }).click()
-    await expect(page.getByRole('status')).toContainText('歌单解析服务暂时不可用')
-    const saved = (await (await page.request.get('/api/v1/admin/music')).json()).data
-    expect(saved.playlistId).toBe('10001')
-    expect(saved.tracks).toHaveLength(2)
-  } finally {
-    if (imported) {
-      const current = (await (await page.request.get('/api/v1/admin/music')).json()).data
-      await adminMutation(page, `/admin/music?version=${current.version}`, 'DELETE')
-    }
-  }
-})
-
-test('unavailable audio offers an official link and the player fits mobile screens', async ({
-  page,
-}) => {
-  await page.route('**/api/v1/music', (route) =>
-    route.fulfill({
-      json: {
-        code: 'OK',
-        data: {
-          playlistId: '10001',
-          name: '移动端电台',
-          profileUrl: '',
-          enabled: true,
-          version: 0,
-          tracks: [
-            {
-              id: 1,
-              title: '不可用音源',
-              artist: '测试',
-              audioUrl: 'http://127.0.0.1:8091/missing.wav',
-              cover: '',
-              sourceUrl: 'https://y.qq.com/n/ryqq/playlist/10001',
-            },
-          ],
-        },
-      },
-    }),
-  )
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await page.getByRole('button', { name: '播放音乐', exact: true }).click()
-  await expect(page.locator('.music-error')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'QQ 音乐', exact: true })).toHaveAttribute(
-    'href',
-    'https://y.qq.com/n/ryqq/playlist/10001',
-  )
-  for (const width of [320, 390, 640, 768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 900 })
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
 })

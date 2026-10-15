@@ -15,8 +15,6 @@ import {
   Tv,
   Music2,
   BriefcaseBusiness,
-  LibraryBig,
-  MessageCircle,
 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import { HttpError } from '../api/http'
@@ -96,17 +94,12 @@ export default function AdminLayout() {
             <BriefcaseBusiness size={18} />
             项目展示
           </NavLink>
-          <NavLink to="/admin/series">
-            <LibraryBig size={18} />
-            文章专题
-          </NavLink>
-          <NavLink to="/admin/moments">
-            <MessageCircle size={18} />
-            说说管理
-          </NavLink>
-          <NavLink to="/admin/taxonomy">
+          <NavLink
+            to="/admin/taxonomy"
+            className={location.pathname === '/admin/series' ? 'active' : undefined}
+          >
             <Tags size={18} />
-            分类与标签
+            内容组织
           </NavLink>
           <NavLink to="/admin/friends">
             <Link2 size={18} />
@@ -146,7 +139,7 @@ export default function AdminLayout() {
               {{
                 posts: '文章管理',
                 media: '图片管理',
-                taxonomy: '分类与标签',
+                taxonomy: '内容组织',
                 friends: '友链管理',
                 settings: '站点设置',
                 comments: '评论审核',
@@ -154,8 +147,8 @@ export default function AdminLayout() {
                 anime: '追番管理',
                 music: '音乐管理',
                 projects: '项目展示',
-                series: '文章专题',
-                moments: '说说管理',
+                series: '内容组织 / 文章专题',
+                members: '用户与社区',
               }[location.pathname.split('/')[2]] || '工作台'}
             </small>
           </span>

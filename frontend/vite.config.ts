@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Plugin } from 'vite'
+import { localMusic } from './build/localMusic'
 
 // Public assets keep their original URLs. Discover them at build time and on dev reload.
 function homeImages(): Plugin {
@@ -40,7 +41,7 @@ function homeImages(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), homeImages()],
+  plugins: [react(), homeImages(), localMusic()],
   server: {
     port: 5173,
     // Wait for new/updated source files to finish writing before transforming them.

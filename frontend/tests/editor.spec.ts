@@ -44,6 +44,36 @@ async function cleanup(page: Page, id: number) {
   expect((await mutate(page, `/${id}?version=${post.version}`, 'DELETE')).status()).toBe(200)
 }
 
+test('taxonomy loading errors can be retried without losing article input', async ({ page }) => {
+  await login(page)
+  let unavailable = true
+  await page.route('**/api/v1/admin/posts/options', (route) =>
+    unavailable
+      ? route.fulfill({ status: 503, json: { message: '选项暂时不可用' } })
+      : route.continue(),
+  )
+  await page.goto('/admin/posts/new')
+  await page.getByLabel('文章标题', { exact: true }).fill('保留正在编辑的文章')
+  const slug = await page.getByLabel('文章地址（slug）').inputValue()
+  await expect(page.getByRole('alert')).toContainText('分类和标签加载失败')
+  await expect(page.getByLabel('分类', { exact: true })).toBeDisabled()
+  unavailable = false
+  await page.getByRole('alert').getByRole('button', { name: '刷新选项' }).click()
+  await page.getByLabel('分类', { exact: true }).selectOption('随笔')
+  await expect(page.getByLabel('文章标题', { exact: true })).toHaveValue('保留正在编辑的文章')
+  await expect(page.getByLabel('文章地址（slug）')).toHaveValue(slug)
+  await page
+    .getByLabel('正文（Markdown）')
+    .fill('[正文](' + 'https://example.com/'.repeat(100) + ')')
+  await expect(page.getByLabel('阅读时长（分钟）')).toHaveValue('1')
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({
+    path: '../docs/screenshots/admin-post-options-mobile.png',
+    fullPage: true,
+  })
+})
+
 test('preview sanitizes Markdown, toolbar wraps selection and mobile layout fits', async ({
   page,
 }) => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, Pause, Play, Shuffle } from 'lucide-react'
+import { ArrowDown } from 'lucide-react'
 import images from 'virtual:home-images'
 import { useSite } from '../../contexts/SiteContext'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
@@ -13,7 +13,6 @@ export default function HeroBanner() {
   const site = useSite()
   const [motion] = useStoredPreference('myblog-motion', 'on', switches)
   const [banner] = useStoredPreference('myblog-banner', 'show', banners)
-  const [paused, setPaused] = useState(false)
   const [hidden, setHidden] = useState(document.hidden)
   const [reduced, setReduced] = useState(
     () => matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -26,7 +25,7 @@ export default function HeroBanner() {
   const [loading, setLoading] = useState(false)
   const sequence = useRef(0)
   const available = images.filter((src) => !failed.includes(src))
-  const animate = motion === 'on' && !reduced && !paused
+  const animate = motion === 'on' && !reduced
 
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)')
@@ -86,6 +85,16 @@ export default function HeroBanner() {
           }}
         />
       </div>
+      {available.length > 1 && (
+        <button
+          type="button"
+          className="hero-picture-switch"
+          aria-label="切换横幅图片"
+          title="点击切换图片"
+          disabled={loading}
+          onClick={changePicture}
+        />
+      )}
       <div className="hero-inner">
         <div className="hero-kicker">
           <span />
@@ -101,29 +110,6 @@ export default function HeroBanner() {
         </a>
       </div>
       <WeatherAtmosphere paused={!animate || hidden} />
-      <div className="hero-controls">
-        {available.length > 1 && (
-          <button
-            type="button"
-            aria-label="随机切换横幅"
-            disabled={loading}
-            onClick={changePicture}
-          >
-            <Shuffle size={15} />
-            <span>换张风景</span>
-          </button>
-        )}
-        {motion === 'on' && !reduced && (
-          <button
-            type="button"
-            aria-label={paused ? '播放横幅动画' : '暂停横幅动画'}
-            aria-pressed={paused}
-            onClick={() => setPaused(!paused)}
-          >
-            {paused ? <Play size={15} /> : <Pause size={15} />}
-          </button>
-        )}
-      </div>
       <div className="hero-wave" aria-hidden="true">
         {[0, 1, 2].map((layer) => (
           <svg

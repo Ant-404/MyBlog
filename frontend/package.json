@@ -8,8 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
-    "format": "prettier --write src tests vite.config.ts playwright.config.ts",
-    "format:check": "prettier --check src tests vite.config.ts playwright.config.ts"
+    "format": "prettier --write src tests build vite.config.ts playwright.config.ts",
+    "format:check": "prettier --check src tests build vite.config.ts playwright.config.ts"
   },
   "dependencies": {
     "dompurify": "^3.2.4",

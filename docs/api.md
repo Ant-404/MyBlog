@@ -142,12 +142,12 @@
 | GET / POST | /admin/anime | 查询全部 / 新建追番记录 |
 | PUT | /admin/anime/{id} | 更新记录，携带 version |
 | DELETE | /admin/anime/{id}?version=N | 删除记录 |
-| GET | /music | 播放器配置；未启用时不返回歌曲 |
-| GET / PUT | /admin/music | 读取 / 保存展示配置 |
-| POST | /admin/music/import | 解析公开歌单并保存；失败保留原数据 |
-| DELETE | /admin/music?version=N | 清空歌单并停用播放器 |
+| GET | /music | 历史 QQ 歌单配置接口，当前前端不使用 |
+| GET / PUT | /admin/music | 历史 QQ 配置接口，当前后台页面不使用 |
+| POST | /admin/music/import | 历史 QQ 导入接口，当前后台页面不使用 |
+| DELETE | /admin/music?version=N | 历史 QQ 清空接口，当前后台页面不使用 |
 
-追番状态为 WATCHING、PLANNED、COMPLETED、ON_HOLD、DROPPED；总集数 0 表示未知，评分 0 表示未评分。已完成状态要求已知总集数且全部看完。音乐写入字段为 playlistId、name、profileUrl、enabled、version；导入支持 QQ 歌单 ID 或完整链接，修改歌单 ID 必须调用 import。版本冲突返回 409，解析服务不可用返回 502 `MUSIC_SERVICE_UNAVAILABLE`。QQ 公开主页关联不提供登录或私密歌单读取。
+追番状态为 WATCHING、PLANNED、COMPLETED、ON_HOLD、DROPPED；总集数 0 表示未知，评分 0 表示未评分。已完成状态要求已知总集数且全部看完。本地播放器从构建时生成的 `virtual:local-music` 模块获取歌曲列表，读取 `/music/{文件名}` 静态资源，不调用上述历史音乐接口；数据库中的旧歌单和接口保留兼容。本次未改变历史接口的服务端行为。
 
 ## 项目、专题与说说
 
@@ -198,3 +198,19 @@
 | DELETE | /admin/guestbook/{id}?version=N | 管理员永久删除 |
 
 个人/管理用户资料为 id、email、nickname、avatar、bio、status、version，不含密码。所有分页每页 20 条。密码 10–72 字符且 UTF-8 编码最多 72 字节；邮箱最多 254 字符，统一去首尾空白并转为小写。便签写 content（1–500 字）、color（lavender/peach/mint/sky）。令牌 30 分钟有效，仅限申请邮箱与用途，数据库只存哈希且只用一次。完整部署配置、限流与注销行为见 `docs/members.md`。
+
+## 本地音乐上传与资料编辑
+
+以下路径均以 `/api/v1` 为前缀。写操作仅 ADMIN 可用，并要求 CSRF。资料保存在音乐目录的 `library.json`，无需 SQL 变更。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /music/local | 公开 name、enabled、tracks |
+| GET | /admin/music/local | 管理歌曲列表 |
+| POST | /admin/music/local | multipart file，音频最多 50MB，返回完整列表，201 |
+| PUT | /admin/music/local/{id} | JSON title、artist（各最多120字，title必填）、version；过期409 |
+| POST | /admin/music/local/{id}/cover?version=N | multipart file，封面 JPEG/PNG，最多5MB/2000万像素，重新编码；过期409 |
+| GET | /music/local/{id}/audio | 音频 Resource，支持 Range/206 |
+| GET | /music/local/{id}/cover?v=N | 歌曲封面；无封面404，v为缓存版本 |
+
+歌曲字段为 id、title、artist、audioUrl、cover、version。文件路径由服务端根据 id 查找，不接受任意用户路径。后台读取/写入不再使用旧 QQ 接口，旧接口仅保留兼容。

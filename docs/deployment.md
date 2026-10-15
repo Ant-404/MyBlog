@@ -13,7 +13,7 @@ server {
     listen 80;
     server_name blog.example.com;
     root /srv/myblog/frontend/dist;
-    client_max_body_size 6m;
+    client_max_body_size 56m;
 
     location /api/ {
         proxy_pass http://127.0.0.1:8080;
@@ -62,4 +62,4 @@ server {
 
 ## 音乐与追番
 
-部署涉及数据库变更的新版时，先停止后端、手动执行 `database/MyBlog.sql`，成功后再启动；它会保留已有数据并补齐缺失结构。音乐解析默认请求 `https://api.i-meto.com/meting/api`，可通过服务端 `METING_API_URL` 替换为兼容的 Meting API。后端需要访问解析服务，访客浏览器需要访问歌曲音频地址。该外部服务不保证持续可用，部分歌曲受版权或会员限制；播放失败可跳转 QQ 音乐官方页面。未填写并启用歌单时，前台不展示播放器。配置方法见 [leisure.md](leisure.md)。
+播放器使用后端本地音乐库。更新代码后重启后端，在 `/admin/music` 上传音乐（最多 50MB）、编辑歌名/歌手、替换封面（最多 5MB），保存后即可使用，无需再次构建前端。默认保存于 `${UPLOAD_DIRECTORY}/music`，可用 `MUSIC_DIRECTORY` 设置绝对路径；音频、封面和 `library.json` 必须一起备份。已有歌曲目录通过 `MUSIC_SOURCE_DIRECTORY` 指定，开发时默认识别项目的 `frontend/public/music/`；生产环境应设为服务器上的实际绝对路径。后端 `/api/v1/music/local/{id}/audio` 支持 Range/206，代理请保留 Range 请求头。Nginx 上传限制需至少 56m。仅运行一个后端实例写入此目录；多实例部署应改用共享的数据库/对象存储方案。无需修改 SQL，历史 QQ 接口保留兼容。

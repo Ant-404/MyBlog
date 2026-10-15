@@ -219,45 +219,6 @@
   margin-top: 10px;
   font-weight: 650;
 }
-.roadmap-card {
-  margin-top: 28px;
-  padding: 28px;
-}
-.roadmap-card h2 {
-  font-size: 18px;
-  margin-bottom: 23px;
-}
-.roadmap-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  padding: 19px 0;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-}
-.roadmap-step svg {
-  margin-top: 2px;
-}
-.roadmap-step strong {
-  color: var(--text);
-  font-size: 13px;
-}
-.roadmap-step p {
-  font-size: 12px;
-  margin: 4px 0 0;
-}
-.roadmap-step > span {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: 10px;
-  border-radius: 5px;
-  background: var(--bg);
-  padding: 4px 8px;
-}
-.roadmap-step.completed > svg,
-.roadmap-step.completed > span {
-  color: var(--accent);
-}
 @media (max-width: 780px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -324,16 +285,6 @@
   }
   .dashboard-stats strong {
     font-size: 28px;
-  }
-  .roadmap-card {
-    padding: 20px;
-  }
-  .roadmap-step {
-    gap: 8px;
-  }
-  .roadmap-step > span {
-    font-size: 9px;
-    padding: 3px 5px;
   }
 }
 
@@ -532,6 +483,7 @@
   margin-top: 0;
 }
 .editor-grid input:not([type='checkbox']),
+.editor-grid select,
 .editor-grid textarea {
   display: block;
   width: 100%;
@@ -541,6 +493,67 @@
   padding: 10px 12px;
   color: var(--text);
   font-size: 12px;
+}
+.content-organization-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.content-organization-nav a {
+  padding: 9px 16px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--card);
+  font-size: 13px;
+}
+.content-organization-nav a.active {
+  color: var(--accent);
+  background: var(--soft);
+}
+.post-tag-options {
+  min-width: 0;
+  margin: 18px 0 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.post-tag-options legend {
+  font-size: 12px;
+}
+.editor-grid .post-tag-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.editor-grid .post-tag-options input {
+  flex-shrink: 0;
+}
+.dashboard-shortcuts {
+  padding: 26px;
+}
+.dashboard-shortcuts h2 {
+  margin: 0 0 18px;
+  font-size: 17px;
+}
+.dashboard-shortcuts > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.dashboard-shortcuts a {
+  padding: 14px;
+  background: var(--soft);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 13px;
+}
+.dashboard-shortcuts a:hover {
+  background: var(--bg);
 }
 .editor-grid textarea {
   resize: vertical;
@@ -911,17 +924,56 @@
   margin-top: 25px;
   border-bottom: 1px solid var(--border);
 }
-.daily-bars > div {
+.daily-bar {
+  position: relative;
   flex: 1;
+  min-width: 0;
   height: 100%;
   display: flex;
   align-items: flex-end;
+  padding: 0;
+  background: transparent;
 }
-.daily-bars span {
+.daily-bar-fill {
   width: 100%;
   background: var(--accent);
   border-radius: 4px 4px 0 0;
   min-height: 2px;
+}
+.daily-bar:hover .daily-bar-fill,
+.daily-bar:focus-visible .daily-bar-fill {
+  background: var(--accent-hover);
+}
+.daily-bar-tooltip {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+  z-index: 2;
+}
+.daily-bar:hover .daily-bar-tooltip,
+.daily-bar:focus .daily-bar-tooltip {
+  visibility: visible;
+}
+.daily-bar:nth-child(-n + 3) .daily-bar-tooltip {
+  left: 0;
+  transform: none;
+}
+.daily-bar:nth-last-child(-n + 3) .daily-bar-tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 .daily-table {
   display: grid;
@@ -944,5 +996,108 @@
   }
   .admin-sidebar nav a svg {
     flex-shrink: 0;
+  }
+}
+.music-library-heading,
+.music-library-row,
+.music-library-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.music-library-heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.music-library-heading h2 {
+  margin-bottom: 6px;
+}
+.music-library-list > li {
+  display: block;
+}
+.music-library-row {
+  width: 100%;
+}
+.music-library-cover {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.music-library-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--accent);
+  font-size: 25px;
+}
+.music-library-info {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.music-library-info strong,
+.music-library-info small {
+  display: block;
+}
+.music-library-list small {
+  margin: 4px 0 0;
+}
+.music-library-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.music-upload-button {
+  position: relative;
+  cursor: pointer;
+}
+.music-upload-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+.music-upload-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.music-upload-button.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.music-track-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  margin-top: 18px;
+}
+.music-track-editor label {
+  display: grid;
+  gap: 6px;
+}
+.music-track-editor .music-library-actions {
+  grid-column: 1 / -1;
+}
+.music-storage-note {
+  margin-top: 22px;
+  font-size: 13px;
+}
+.music-storage-note summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+@media (max-width: 650px) {
+  .music-library-row {
+    flex-wrap: wrap;
+  }
+  .music-library-actions {
+    width: 100%;
+  }
+  .music-track-editor {
+    grid-template-columns: 1fr;
   }
 }

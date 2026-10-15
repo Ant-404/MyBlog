@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
-import { FileText, FolderOpen, Hash, CheckCircle2 } from 'lucide-react'
+import { FileText, FolderOpen, Hash } from 'lucide-react'
 import { authApi } from '../../api/auth'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { usePageTitle } from '../../hooks/usePageTitle'
@@ -46,71 +46,15 @@ export default function AdminDashboardPage() {
           </section>
         </div>
       </DataState>
-      <section className="card roadmap-card">
-        <h2>一步一步，完善小站</h2>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <strong>管理员登录与后台入口</strong>
-            <p>登录、会话验证、退出登录和权限保护已就绪。</p>
-          </div>
-          <span>已完成</span>
-        </div>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <Link to="/admin/posts">
-              <strong>文章管理</strong>
-            </Link>
-            <p>新增、编辑、草稿、发布、置顶与删除。</p>
-          </div>
-          <span>已完成</span>
-        </div>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <strong>Markdown 编辑器</strong>
-            <p>实时预览、格式工具栏与已有草稿自动保存。</p>
-          </div>
-          <span>已完成</span>
-        </div>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <Link to="/admin/media">
-              <strong>图片管理</strong>
-            </Link>
-            <p>封面、正文图片上传与引用保护。</p>
-          </div>
-          <span>已完成</span>
-        </div>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <Link to="/admin/settings">
-              <strong>内容与站点设置</strong>
-            </Link>
-            <p>分类、标签、友链、个人资料与关于页面。</p>
-          </div>
-          <span>已完成</span>
-        </div>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <strong>文章阅读体验</strong>
-            <p>目录、阅读进度、相邻文章和代码高亮。</p>
-          </div>
-          <span>已完成</span>
-        </div>
-        <div className="roadmap-step completed">
-          <CheckCircle2 size={20} />
-          <div>
-            <Link to="/admin/comments">
-              <strong>评论、订阅与统计</strong>
-            </Link>
-            <p>评论审核、RSS、站点地图与阅读趋势。</p>
-          </div>
-          <span>已完成</span>
+      <section className="card dashboard-shortcuts" aria-label="常用功能">
+        <h2>常用功能</h2>
+        <div>
+          <Link to="/admin/posts">管理文章</Link>
+          <Link to="/admin/taxonomy">分类、标签与专题</Link>
+          <Link to="/admin/comments">审核评论</Link>
+          <Link to="/admin/members?tab=notes">审核留言墙</Link>
+          <Link to="/admin/media">管理图片</Link>
+          <Link to="/admin/settings">站点设置</Link>
         </div>
       </section>
     </>

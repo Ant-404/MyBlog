@@ -93,7 +93,19 @@ test('series editor orders articles and excludes drafts from the public reading 
   })
   let id: number | undefined
   try {
-    await page.goto('/admin/series')
+    await page
+      .getByRole('navigation', { name: '后台导航' })
+      .getByRole('link', { name: '内容组织', exact: true })
+      .click()
+    await page
+      .getByRole('navigation', { name: '内容组织', exact: true })
+      .getByRole('link', { name: '文章专题', exact: true })
+      .click()
+    await expect(
+      page
+        .getByRole('navigation', { name: '后台导航' })
+        .getByRole('link', { name: '内容组织', exact: true }),
+    ).toHaveClass(/active/)
     await page.getByLabel('文章专题标题').fill(`系列验证-${stamp}`)
     await page.getByLabel('发布日期').fill('2026-01-01')
     for (const post of [a, b, draft])
@@ -117,41 +129,21 @@ test('series editor orders articles and excludes drafts from the public reading 
   }
 })
 
-test('legacy moments data stays editable and public route redirects to guestbook', async ({
-  page,
-}) => {
+test('legacy moments routes redirect to guestbook moderation and public wall', async ({ page }) => {
   await login(page)
-  const title = `日常验证-${Date.now()}`
-  let id: number | undefined
-  try {
-    await page.goto('/admin/moments')
-    await page.getByLabel('说说标题（可选）').fill(title)
-    await page
-      .getByLabel('说说正文', { exact: true })
-      .fill('今天记录一张照片。\n<script>window.badMoment=true</script>')
-    await page.getByLabel('发布日期').fill('2026-01-01')
-    for (const url of ['/images/landscape.svg', '/images/autumn.svg']) {
-      await page.getByLabel('添加图片地址').fill(url)
-      await page.getByRole('button', { name: '添加图片', exact: true }).click()
-    }
-    await page.getByRole('button', { name: '上移图片 2', exact: true }).click()
-    await page.getByLabel('公开显示').check()
-    await page.getByRole('button', { name: '新增说说', exact: true }).click()
-    await expect(page.getByRole('status').filter({ hasText: '操作成功' })).toBeVisible()
-    const saved = (await (await page.request.get('/api/v1/admin/moments')).json()).data.items.find(
-      (entry: { title: string }) => entry.title === title,
-    )
-    id = saved.id
-    expect(saved.images).toEqual(['/images/autumn.svg', '/images/landscape.svg'])
-    expect(saved.content).toContain('<script>window.badMoment=true</script>')
-    await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto('/moments')
-    await expect(page).toHaveURL(/\/guestbook$/)
-    await expect(page.getByRole('heading', { name: '留言墙.' })).toBeVisible()
-    await page.screenshot({ path: '../docs/screenshots/guestbook-mobile.png', fullPage: true })
-  } finally {
-    if (id) await remove(page, 'moments', id)
-  }
+  await page.goto('/admin/moments')
+  await expect(page).toHaveURL(/\/admin\/members\?tab=notes$/)
+  await expect(page.getByRole('button', { name: '留言墙审核', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(
+    page.getByRole('navigation', { name: '后台导航' }).getByRole('link', { name: '说说管理' }),
+  ).toHaveCount(0)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/moments')
+  await expect(page).toHaveURL(/\/guestbook$/)
+  await expect(page.getByRole('heading', { name: /留言墙/ })).toBeVisible()
 })
 
 test('stale editor keeps current input when another window changes the project', async ({

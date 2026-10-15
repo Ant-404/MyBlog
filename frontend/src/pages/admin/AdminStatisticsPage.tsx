@@ -48,11 +48,24 @@ export default function AdminStatisticsPage() {
             </div>
             <section className="card management-card statistics-chart">
               <h2>近 30 天阅读</h2>
-              <div className="daily-bars" role="img" aria-label="近 30 天每日阅读次数">
+              <div className="daily-bars" role="group" aria-label="近 30 天每日阅读次数">
                 {days.map((day) => (
-                  <div key={day.date} title={`${day.date}：${day.count} 次`}>
-                    <span style={{ height: `${Math.max(2, (day.count / maximum) * 100)}%` }} />
-                  </div>
+                  <button
+                    key={day.date}
+                    type="button"
+                    className="daily-bar"
+                    aria-label={`${day.date}：${day.count} 次阅读`}
+                  >
+                    <span
+                      className="daily-bar-fill"
+                      style={{ height: `${Math.max(2, (day.count / maximum) * 100)}%` }}
+                    />
+                    <span className="daily-bar-tooltip" role="tooltip">
+                      {day.date}
+                      <br />
+                      <strong>{day.count} 次阅读</strong>
+                    </span>
+                  </button>
                 ))}
               </div>
               <p className="muted">
