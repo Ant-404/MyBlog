@@ -7,6 +7,7 @@ import { useAsyncData } from '../hooks/useAsyncData'
 import { usePageTitle } from '../hooks/usePageTitle'
 import DataState from '../components/common/DataState'
 import ArticleReadingTools from '../components/blog/ArticleReadingTools'
+import ArticleEnhancements from '../components/blog/ArticleEnhancements'
 import PostNeighbors from '../components/blog/PostNeighbors'
 import PostComments from '../components/blog/PostComments'
 import PostReadCount from '../components/blog/PostReadCount'
@@ -46,6 +47,7 @@ export default function PostDetailPage() {
           />
           <ArticleReadingTools html={html} />
           <div id="article-content" className="prose" dangerouslySetInnerHTML={{ __html: html }} />
+          <ArticleEnhancements key={`enhancements:${slug}`} html={html} />
           <div className="tag-cloud">
             {post.tags.map((tag) => (
               <Link key={tag} to={`/?tag=${encodeURIComponent(tag)}`}>

@@ -76,6 +76,10 @@ public class MediaRepository {
                 Long.class,
                 url,
                 literal)
+            > 0
+        || jdbc.queryForObject("SELECT COUNT(*) FROM anime_entries WHERE cover=?", Long.class, url)
+            > 0
+        || jdbc.queryForObject("SELECT COUNT(*) FROM music_tracks WHERE cover=?", Long.class, url)
             > 0;
   }
 

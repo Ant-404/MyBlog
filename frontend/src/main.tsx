@@ -6,6 +6,8 @@ import { SiteProvider } from './contexts/SiteContext'
 import './styles/tokens.css'
 import './styles/global.css'
 import './styles/admin.css'
+import './styles/blog-theme.css'
+import './styles/leisure.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

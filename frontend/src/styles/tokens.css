@@ -1,29 +1,52 @@
 :root {
-  font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-family: 'Segoe UI Variable', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #363342;
   background: #f4f3f7;
   font-synthesis: none;
-  --bg: #f4f3f7;
+  --hue: 275;
+  --bg: hsl(var(--hue) 24% 96%);
   --card: #fff;
   --text: #363342;
-  --muted: #94919f;
-  --accent: #8975bb;
-  --accent-hover: #705aab;
-  --soft: #f0ebf8;
-  --border: #efedf3;
-  --shadow: 0 4px 20px #37304f05;
-  --radius: 15px;
+  --muted: #77717f;
+  --accent-lightness: 46%;
+  --accent: hsl(var(--hue) 32% var(--accent-lightness));
+  --accent-hover: hsl(var(--hue) 36% calc(var(--accent-lightness) - 8%));
+  --soft: hsl(var(--hue) 44% 95%);
+  --border: hsl(var(--hue) 20% 92%);
+  --shadow: 0 5px 24px hsl(var(--hue) 25% 30% / 0.035);
+  --radius: 18px;
+  --reading-size: 15px;
+}
+:root[data-color='blue'] {
+  --hue: 215;
+}
+:root[data-color='green'] {
+  --hue: 160;
+  --accent-lightness: 36%;
+}
+:root[data-color='rose'] {
+  --hue: 340;
+}
+:root[data-color='amber'] {
+  --hue: 35;
+  --accent-lightness: 39%;
+}
+:root[data-reading-size='small'] {
+  --reading-size: 14px;
+}
+:root[data-reading-size='large'] {
+  --reading-size: 18px;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #191821;
-  --card: #24232e;
+  --bg: hsl(var(--hue) 12% 11%);
+  --card: hsl(var(--hue) 10% 16%);
   --text: #e4e0ee;
   --muted: #aaa4b8;
-  --accent: #b4a0e1;
-  --accent-hover: #ccb7f6;
-  --soft: #353043;
-  --border: #373441;
+  --accent: hsl(var(--hue) 48% 76%);
+  --accent-hover: hsl(var(--hue) 55% 84%);
+  --soft: hsl(var(--hue) 15% 22%);
+  --border: hsl(var(--hue) 12% 24%);
   color: var(--text);
   background: var(--bg);
 }

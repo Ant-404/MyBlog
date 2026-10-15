@@ -1,21 +1,44 @@
--- MyBlog initial database: run this entire file once on a new database.
--- No DROP statements. If tables already exist, execution stops; do not force continuation.
--- After import, set FLYWAY_BASELINE_ON_MIGRATE=true for the first backend startup.
+-- MyBlog 数据库唯一 SQL 文件（MySQL 8.0.16+，UTF-8）
+-- 用法：停止后端，在 MySQL 客户端执行整个文件，成功后再启动 MyBlogApplication。
+-- 新库：创建 MyBlog、全部表和示例文章；管理员密码由后端首次启动时初始化。
+-- 已有库：补齐缺失的表、版本列和索引，不覆盖文章、管理员密码、站点设置或歌单。
+-- 可重复执行；示例文章只在首次创建 posts 表时插入，不恢复已经删除的文章。
+-- 执行账号需要 CREATE / ALTER / INDEX / CREATE ROUTINE 等权限；先备份已有数据库。
+-- 不包含删库、删表操作。历史 flyway_schema_history 表保留但不再使用。
+-- 更新记录（后续更新继续在本文件注明，并加入兼容升级语句）：
+-- [V1-V2] 基础文章、分类、标签、友链与示例内容。
+-- [V3-V4] 管理员表与憨Ant的初始资料。
+-- [V5] 文章编辑版本与后台排序索引。
+-- [V6] 图片元数据。
+-- [V7] 分类/标签/友链版本与站点设置。
+-- [V8] 评论与阅读统计。
+-- [V9 | 2026-10-15] 追番记录、QQ 公开歌单配置与歌曲元数据。
+-- [整理 | 2026-10-15] 合并为唯一文件，移除 Flyway，改为手动执行。
+
+-- @mysql-only-begin
 SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS MyBlog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE MyBlog;
+SET @myblog_new_install = NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'posts'
+);
+-- @mysql-only-end
 
-CREATE TABLE categories (
+-- 一、最新完整表结构。已有表与数据保持不变。
+CREATE TABLE IF NOT EXISTS categories (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(64) NOT NULL UNIQUE
+    name VARCHAR(64) NOT NULL UNIQUE,
+    version INT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE tags (
+CREATE TABLE IF NOT EXISTS tags (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(64) NOT NULL UNIQUE
+    name VARCHAR(64) NOT NULL UNIQUE,
+    version INT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE posts (
+CREATE TABLE IF NOT EXISTS posts (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     slug VARCHAR(160) NOT NULL UNIQUE,
     title VARCHAR(200) NOT NULL,
@@ -29,31 +52,180 @@ CREATE TABLE posts (
     status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version INT NOT NULL DEFAULT 0,
     CONSTRAINT fk_posts_category FOREIGN KEY (category_id) REFERENCES categories(id),
     CONSTRAINT chk_posts_status CHECK (status IN ('DRAFT', 'PUBLISHED')),
-    CONSTRAINT chk_posts_reading_minutes CHECK (reading_minutes > 0)
+    CONSTRAINT chk_posts_reading_minutes CHECK (reading_minutes > 0),
+    INDEX idx_posts_publication (status, pinned, published_at, id),
+    INDEX idx_posts_category (category_id, status, published_at),
+    INDEX idx_posts_admin_updated (updated_at, id)
 );
-CREATE INDEX idx_posts_publication ON posts(status, pinned, published_at, id);
-CREATE INDEX idx_posts_category ON posts(category_id, status, published_at);
-
-CREATE TABLE post_tags (
+CREATE TABLE IF NOT EXISTS post_tags (
     post_id BIGINT NOT NULL,
     tag_id BIGINT NOT NULL,
     PRIMARY KEY (post_id, tag_id),
     CONSTRAINT fk_post_tags_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    CONSTRAINT fk_post_tags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+    CONSTRAINT fk_post_tags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+    INDEX idx_post_tags_tag (tag_id, post_id)
 );
-CREATE INDEX idx_post_tags_tag ON post_tags(tag_id, post_id);
-
-CREATE TABLE friends (
+CREATE TABLE IF NOT EXISTS friends (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(300) NOT NULL,
     url VARCHAR(500) NOT NULL,
     sort_order INT NOT NULL DEFAULT 0,
-    visible BOOLEAN NOT NULL DEFAULT TRUE
+    visible BOOLEAN NOT NULL DEFAULT TRUE,
+    version INT NOT NULL DEFAULT 0
 );
 
+
+CREATE TABLE IF NOT EXISTS admin_users (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(64) NOT NULL UNIQUE,
+    password_hash VARCHAR(100) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS media_files (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    filename VARCHAR(64) NOT NULL UNIQUE,
+    original_name VARCHAR(200) NOT NULL,
+    content_type VARCHAR(32) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS site_settings (
+    id INT NOT NULL PRIMARY KEY,
+    name VARCHAR(64) NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    subtitle VARCHAR(200) NOT NULL,
+    author VARCHAR(64) NOT NULL,
+    bio VARCHAR(200) NOT NULL,
+    description VARCHAR(500) NOT NULL,
+    about_content TEXT NOT NULL,
+    avatar VARCHAR(500) NOT NULL,
+    public_url VARCHAR(500) NOT NULL,
+    comments_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    version INT NOT NULL DEFAULT 0
+);
+
+
+CREATE TABLE IF NOT EXISTS comments (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    post_id BIGINT NOT NULL,
+    author VARCHAR(64) NOT NULL,
+    content VARCHAR(2000) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    version INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    CONSTRAINT chk_comments_status CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+    INDEX idx_comments_public (post_id,status,id),
+    INDEX idx_comments_moderation (status,id)
+);
+CREATE TABLE IF NOT EXISTS post_views (
+    post_id BIGINT NOT NULL,
+    view_date DATE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (post_id,view_date),
+    CONSTRAINT fk_views_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS anime_entries (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    cover VARCHAR(1000) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL,
+    watched_episodes INT NOT NULL DEFAULT 0,
+    total_episodes INT NOT NULL DEFAULT 0,
+    score DECIMAL(3,1) NOT NULL DEFAULT 0,
+    note VARCHAR(2000) NOT NULL DEFAULT '',
+    source_url VARCHAR(1000) NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    visible BOOLEAN NOT NULL DEFAULT TRUE,
+    version INT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_anime_progress CHECK (watched_episodes >= 0 AND total_episodes >= 0 AND (total_episodes = 0 OR watched_episodes <= total_episodes)),
+    CONSTRAINT ck_anime_score CHECK (score >= 0 AND score <= 10),
+    CONSTRAINT ck_anime_status CHECK (status IN ('PLANNED','WATCHING','COMPLETED','ON_HOLD','DROPPED')),
+    INDEX idx_anime_visible_order (visible, sort_order, id)
+);
+CREATE TABLE IF NOT EXISTS music_settings (
+    id INT NOT NULL PRIMARY KEY,
+    playlist_id VARCHAR(32) NOT NULL DEFAULT '',
+    name VARCHAR(100) NOT NULL DEFAULT '耳边的小世界',
+    profile_url VARCHAR(1000) NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    version INT NOT NULL DEFAULT 0
+);
+
+
+CREATE TABLE IF NOT EXISTS music_tracks (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(300) NOT NULL,
+    artist VARCHAR(300) NOT NULL,
+    audio_url VARCHAR(2000) NOT NULL,
+    cover VARCHAR(2000) NOT NULL DEFAULT '',
+    source_url VARCHAR(1000) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0
+);
+
+-- 二、已有库升级：仅补齐缺失列与索引，不重置已有版本。
+-- @mysql-only-begin
+DELIMITER $$
+DROP PROCEDURE IF EXISTS myblog_apply_schema_20261015$$
+CREATE PROCEDURE myblog_apply_schema_20261015()
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'posts' AND column_name = 'version') THEN
+        ALTER TABLE posts ADD COLUMN version INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'categories' AND column_name = 'version') THEN
+        ALTER TABLE categories ADD COLUMN version INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'tags' AND column_name = 'version') THEN
+        ALTER TABLE tags ADD COLUMN version INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'friends' AND column_name = 'version') THEN
+        ALTER TABLE friends ADD COLUMN version INT NOT NULL DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'posts' AND index_name = 'idx_posts_publication') THEN
+        CREATE INDEX idx_posts_publication ON posts(status, pinned, published_at, id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'posts' AND index_name = 'idx_posts_category') THEN
+        CREATE INDEX idx_posts_category ON posts(category_id, status, published_at);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'post_tags' AND index_name = 'idx_post_tags_tag') THEN
+        CREATE INDEX idx_post_tags_tag ON post_tags(tag_id, post_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'comments' AND index_name = 'idx_comments_public') THEN
+        CREATE INDEX idx_comments_public ON comments(post_id,status,id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'comments' AND index_name = 'idx_comments_moderation') THEN
+        CREATE INDEX idx_comments_moderation ON comments(status,id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'anime_entries' AND index_name = 'idx_anime_visible_order') THEN
+        CREATE INDEX idx_anime_visible_order ON anime_entries(visible, sort_order, id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'posts' AND index_name = 'idx_posts_admin_updated') THEN
+        CREATE INDEX idx_posts_admin_updated ON posts(updated_at, id);
+    END IF;
+END$$
+CALL myblog_apply_schema_20261015()$$
+DROP PROCEDURE myblog_apply_schema_20261015$$
+DELIMITER ;
+-- @mysql-only-end
+
+-- 三、首次建库的示例文章与友链。已有数据库跳过。
+-- @mysql-only-begin
+DELIMITER $$
+DROP PROCEDURE IF EXISTS myblog_seed_new_database_20261015$$
+CREATE PROCEDURE myblog_seed_new_database_20261015()
+BEGIN
+    IF @myblog_new_install THEN
+-- @mysql-only-end
 INSERT INTO categories (id, name) VALUES (1, '随笔'), (2, '技术'), (3, '生活');
 INSERT INTO tags (id, name) VALUES
     (1, '生活'), (2, '博客'), (3, 'Java'), (4, 'Spring Boot'),
@@ -193,3 +365,18 @@ INSERT INTO friends (id, name, description, url, sort_order, visible) VALUES
     (1, 'TypeScript', 'JavaScript 的类型系统与开发工具。', 'https://www.typescriptlang.org/', 1, TRUE),
     (2, 'React', '用于构建用户界面的 JavaScript 库。', 'https://react.dev/', 2, TRUE),
     (3, 'Spring', '构建 Java 应用的工具与生态。', 'https://spring.io/', 3, TRUE);
+
+-- @mysql-only-begin
+    END IF;
+END$$
+CALL myblog_seed_new_database_20261015()$$
+DROP PROCEDURE myblog_seed_new_database_20261015$$
+DELIMITER ;
+-- @mysql-only-end
+
+-- 四、只补充缺失的单例配置，不覆盖已有设置。
+INSERT INTO site_settings(id, name, title, subtitle, author, bio, description, about_content, avatar, public_url)
+SELECT 1, '憨Ant', '憨Ant的小站', '记录学习，也记录生活。', '憨Ant', '记录学习与生活', '这里是憨Ant的个人博客，欢迎来看看。', '这里用来记录学习笔记、项目实践和日常生活。欢迎常来。', '', 'http://127.0.0.1:5173'
+WHERE NOT EXISTS (SELECT 1 FROM site_settings WHERE id = 1);
+INSERT INTO music_settings(id) SELECT 1
+WHERE NOT EXISTS (SELECT 1 FROM music_settings WHERE id = 1);

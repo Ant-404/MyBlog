@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { LayoutGrid, List, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { blogApi } from '../api/blog'
@@ -6,11 +6,15 @@ import { useAsyncData } from '../hooks/useAsyncData'
 import { usePageTitle } from '../hooks/usePageTitle'
 import PostCard from '../components/blog/PostCard'
 import DataState from '../components/common/DataState'
+import { useStoredPreference } from '../hooks/useStoredPreference'
+
+const views = ['grid', 'list'] as const
 
 export default function HomePage() {
   usePageTitle('首页')
   const [params, setParams] = useSearchParams()
-  const [grid, setGrid] = useState(true)
+  const [view, setView] = useStoredPreference('myblog-post-view', 'grid', views)
+  const grid = view === 'grid'
   const page = Math.min(100000, Math.max(1, Math.floor(Number(params.get('page')) || 1)))
   const keyword = params.get('keyword') || ''
   const category = params.get('category') || ''
@@ -47,7 +51,7 @@ export default function HomePage() {
             className={grid ? 'active' : ''}
             aria-label="网格视图"
             aria-pressed={grid}
-            onClick={() => setGrid(true)}
+            onClick={() => setView('grid')}
           >
             <LayoutGrid size={17} />
           </button>
@@ -55,7 +59,7 @@ export default function HomePage() {
             className={!grid ? 'active' : ''}
             aria-label="列表视图"
             aria-pressed={!grid}
-            onClick={() => setGrid(false)}
+            onClick={() => setView('list')}
           >
             <List size={18} />
           </button>
@@ -86,7 +90,13 @@ export default function HomePage() {
         )}
         <span className="result-count">{data?.total ?? '—'} 篇记录</span>
       </div>
-      <DataState loading={loading} error={error} empty={data?.items.length === 0} onRetry={refresh}>
+      <DataState
+        loading={loading}
+        error={error}
+        empty={data?.items.length === 0}
+        onRetry={refresh}
+        variant="posts"
+      >
         <div className={`post-grid ${grid ? '' : 'list-view'}`}>
           {data?.items.map((post) => (
             <PostCard key={post.id} post={post} />

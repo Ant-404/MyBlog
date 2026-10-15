@@ -232,7 +232,7 @@ kbd {
 }
 .hero {
   height: 334px;
-  background: #dcd9eb url('/images/landscape.svg') center 52% / cover;
+  background: #dcd9eb url('/images/home1.jpg') center 25% / cover;
   position: relative;
   overflow: hidden;
 }
@@ -339,7 +339,7 @@ kbd {
 }
 .profile-scenery {
   height: 84px;
-  background: url('/images/landscape.svg') center 40% / cover;
+  background: url('/images/personal.jpg') center 40% / cover;
 }
 .avatar {
   width: 72px;

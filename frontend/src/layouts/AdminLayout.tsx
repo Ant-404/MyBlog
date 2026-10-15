@@ -12,6 +12,8 @@ import {
   Settings,
   MessageSquare,
   BarChart3,
+  Tv,
+  Music2,
 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import { HttpError } from '../api/http'
@@ -91,6 +93,14 @@ export default function AdminLayout() {
             <Link2 size={18} />
             友链管理
           </NavLink>
+          <NavLink to="/admin/anime">
+            <Tv size={18} />
+            追番管理
+          </NavLink>
+          <NavLink to="/admin/music">
+            <Music2 size={18} />
+            音乐管理
+          </NavLink>
           <NavLink to="/admin/settings">
             <Settings size={18} />
             站点设置
@@ -122,6 +132,8 @@ export default function AdminLayout() {
                 settings: '站点设置',
                 comments: '评论审核',
                 statistics: '阅读统计',
+                anime: '追番管理',
+                music: '音乐管理',
               }[location.pathname.split('/')[2]] || '工作台'}
             </small>
           </span>

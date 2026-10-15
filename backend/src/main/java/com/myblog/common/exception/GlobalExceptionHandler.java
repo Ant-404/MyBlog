@@ -19,6 +19,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+  @ExceptionHandler(ExternalServiceException.class)
+  public ResponseEntity<ApiResponse<Void>> externalService(ExternalServiceException exception) {
+    return ResponseEntity.status(502)
+        .body(ApiResponse.failure("MUSIC_SERVICE_UNAVAILABLE", exception.getMessage()));
+  }
+
   @ExceptionHandler(TooManyRequestsException.class)
   public ResponseEntity<ApiResponse<Void>> limited(TooManyRequestsException exception) {
     return ResponseEntity.status(429)

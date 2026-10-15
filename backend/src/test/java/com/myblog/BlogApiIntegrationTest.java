@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+@org.springframework.context.annotation.Import(TestDatabaseConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

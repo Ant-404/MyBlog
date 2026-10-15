@@ -9,6 +9,7 @@ export const site = {
     { label: '首页', path: '/' },
     { label: '归档', path: '/archives' },
     { label: '分类', path: '/categories' },
+    { label: '追番', path: '/anime' },
     { label: '友链', path: '/friends' },
     { label: '关于', path: '/about' },
   ],

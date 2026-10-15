@@ -1,35 +1,37 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Flower2, Search, Sun, Moon, Menu, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import {
+  Flower2,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  Home,
+  Archive,
+  FolderOpen,
+  Link2,
+  UserRound,
+  Tv,
+} from 'lucide-react'
 import { useSite } from '../../contexts/SiteContext'
 import { useTheme } from '../../hooks/useTheme'
+import AppearanceSettings from './AppearanceSettings'
+import SearchBox from './SearchBox'
+
+const navIcons = [Home, Archive, FolderOpen, Tv, Link2, UserRound]
 
 export default function SiteHeader() {
   const site = useSite()
   const { dark, toggle } = useTheme()
-  const navigate = useNavigate()
   const location = useLocation()
-  const [keyword, setKeyword] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
-  const input = useRef<HTMLInputElement>(null)
   useEffect(() => {
     setMenuOpen(false)
-    setKeyword(new URLSearchParams(location.search).get('keyword') || '')
   }, [location])
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement
-      if (
-        event.key === '/' &&
-        !['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) &&
-        !target.isContentEditable
-      ) {
-        event.preventDefault()
-        input.current?.focus()
-      }
       if (event.key === 'Escape') {
         setMenuOpen(false)
-        input.current?.blur()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -46,34 +48,18 @@ export default function SiteHeader() {
           </span>
         </Link>
         <nav id="main-nav" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="主导航">
-          {site.nav.map((item) => (
-            <NavLink key={item.path} to={item.path} end>
-              {item.label}
-            </NavLink>
-          ))}
+          {site.nav.map((item, index) => {
+            const Icon = navIcons[index] || Home
+            return (
+              <NavLink key={item.path} to={item.path} end>
+                <Icon size={15} />
+                {item.label}
+              </NavLink>
+            )
+          })}
         </nav>
         <div className="header-actions">
-          <form
-            className="search-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              navigate(keyword.trim() ? `/?keyword=${encodeURIComponent(keyword.trim())}` : '/')
-            }}
-          >
-            <Search size={16} />
-            <input
-              ref={input}
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              aria-label="搜索文章"
-              placeholder="搜索文章…"
-              maxLength={100}
-            />
-            <kbd>/</kbd>
-            <button type="submit" className="sr-only">
-              搜索
-            </button>
-          </form>
+          <SearchBox />
           <button
             className="icon-button"
             onClick={toggle}
@@ -81,6 +67,7 @@ export default function SiteHeader() {
           >
             {dark ? <Sun size={20} /> : <Moon size={19} />}
           </button>
+          <AppearanceSettings />
           <button
             className="icon-button mobile-menu"
             aria-controls="main-nav"

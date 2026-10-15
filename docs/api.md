@@ -129,3 +129,20 @@
 表中除根路径说明外均以 `/api/v1` 为前缀。评论 author 最长 64，content 最长 2000，按纯文字展示；website 是应留空的诱捕字段。评论关闭时提交返回 400，每个来源地址 10 分钟最多 5 次，超限返回 429 RATE_LIMITED。管理评论增加 slug、postTitle、status、version；公开评论仅返回 id、author、content、createdAt。
 
 阅读统计日期以 Asia/Shanghai 计算，daily 为近 30 天有数据的日期及 count；posts 为前 20 篇文章及 count。它不代表独立访客。所有文章关联公开接口对草稿和未来日期文章返回 404，RSS 和站点地图遵守同一公开范围。
+
+## 音乐与追番
+
+以下路径均以 `/api/v1` 为前缀；所有管理写操作需要管理员会话及 CSRF。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | /anime | 仅公开显示的追番记录 |
+| GET / POST | /admin/anime | 查询全部 / 新建追番记录 |
+| PUT | /admin/anime/{id} | 更新记录，携带 version |
+| DELETE | /admin/anime/{id}?version=N | 删除记录 |
+| GET | /music | 播放器配置；未启用时不返回歌曲 |
+| GET / PUT | /admin/music | 读取 / 保存展示配置 |
+| POST | /admin/music/import | 解析公开歌单并保存；失败保留原数据 |
+| DELETE | /admin/music?version=N | 清空歌单并停用播放器 |
+
+追番状态为 WATCHING、PLANNED、COMPLETED、ON_HOLD、DROPPED；总集数 0 表示未知，评分 0 表示未评分。已完成状态要求已知总集数且全部看完。音乐写入字段为 playlistId、name、profileUrl、enabled、version；导入支持 QQ 歌单 ID 或完整链接，修改歌单 ID 必须调用 import。版本冲突返回 409，解析服务不可用返回 502 `MUSIC_SERVICE_UNAVAILABLE`。QQ 公开主页关联不提供登录或私密歌单读取。

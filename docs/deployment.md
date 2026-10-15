@@ -42,7 +42,7 @@ server {
 
 `mvn package` 生成 `backend/target/myblog-backend-0.1.0.jar`。设置 DB_HOST、DB_PORT、DB_NAME、DB_USERNAME、DB_PASSWORD 后执行 `java -jar ...`。本地也可直接运行 MyBlogApplication；工作目录为项目根目录或 backend 时会自动读取 `backend/.env` 或 `.env`。系统或运行配置中的环境变量优先。Windows 还可使用 `Start-Backend.ps1 -Packaged` 启动。
 
-数据库名为 `MyBlog`。正式环境使用独立应用账号与环境变量管理密码。首次导入完整 SQL 后基线版本为 2；基线登记完成后关闭 FLYWAY_BASELINE_ON_MIGRATE，后续依靠 V3、V4 等迁移升级。
+数据库名为 `MyBlog`。正式环境使用独立应用账号与环境变量管理密码。新建和升级均由用户手动执行唯一的 `database/MyBlog.sql`，成功后再启动应用；不使用 Flyway 或自动建表。已有数据库先备份，执行脚本的账号需有 CREATE ROUTINE、ALTER、INDEX 等权限；运行应用的账号不需要这些 DDL 权限。
 
 ## 部署检查
 
@@ -59,3 +59,7 @@ server {
 评论默认待审核，每个来源地址 10 分钟最多提交 5 次；登录和评论限流均为单实例内存状态。反向代理部署时设置 `FORWARD_HEADERS_STRATEGY=native`，后端只允许可信代理连接，由代理覆盖转发头；未使用可信代理时保留 `none`。上面的 Nginx 配置覆盖来源头，避免直接信任访客填写的地址。正式部署还需启用 TLS。
 
 统计从功能启用时开始，不补算历史阅读。同一会话同一天对同一文章只计一次；清除 Cookie、新会话或机器人请求可能增加计数，因此不是独立访客或完整网站流量分析。日期以 Asia/Shanghai 计算。
+
+## 音乐与追番
+
+部署涉及数据库变更的新版时，先停止后端、手动执行 `database/MyBlog.sql`，成功后再启动；它会保留已有数据并补齐缺失结构。音乐解析默认请求 `https://api.i-meto.com/meting/api`，可通过服务端 `METING_API_URL` 替换为兼容的 Meting API。后端需要访问解析服务，访客浏览器需要访问歌曲音频地址。该外部服务不保证持续可用，部分歌曲受版权或会员限制；播放失败可跳转 QQ 音乐官方页面。未填写并启用歌单时，前台不展示播放器。配置方法见 [leisure.md](leisure.md)。

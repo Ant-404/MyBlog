@@ -17,6 +17,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+@org.springframework.context.annotation.Import(TestDatabaseConfiguration.class)
 @SpringBootTest(properties = "blog.media.directory=target/test-uploads")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

@@ -12,9 +12,15 @@ export default defineConfig({
   },
   webServer: [
     {
+      command: 'node tests/fixtures/music-server.mjs',
+      url: 'http://127.0.0.1:8091/health',
+      reuseExistingServer: false,
+    },
+    {
       command:
         'mvn spring-boot:test-run -Dspring-boot.run.profiles=test -Dspring-boot.run.arguments=--server.port=8081',
       cwd: '../backend',
+      env: { METING_API_URL: 'http://127.0.0.1:8091/meting' },
       url: 'http://127.0.0.1:8081/api/v1/site/stats',
       timeout: 120000,
       reuseExistingServer: !process.env.CI,

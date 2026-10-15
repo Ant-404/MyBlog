@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Wait for new/updated source files to finish writing before transforming them.
+    watch: { awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 25 } },
     proxy: Object.fromEntries(
       ['/api', '/rss.xml', '/sitemap.xml'].map((path) => [
         path,

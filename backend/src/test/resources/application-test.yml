@@ -4,8 +4,6 @@ spring:
     username: sa
     password: ""
     driver-class-name: org.h2.Driver
-  flyway:
-    baseline-on-migrate: false
 blog:
   media:
     directory: target/test-uploads

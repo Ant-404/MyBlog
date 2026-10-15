@@ -1,6 +1,8 @@
 # 憨Ant的小站 · MyBlog
 
-参考 [Mizuki](https://github.com/matsuzaka-yuki/Mizuki) 的视觉风格，使用 React 与 Spring Boot 构建的前后端分离个人博客。前端保留山景横幅、柔和紫色、圆角文章卡片、双侧栏与明暗主题，代码和插图均为本项目独立实现。
+参考 [Mizuki](https://github.com/matsuzaka-yuki/Mizuki) 的视觉风格，使用 React 与 Spring Boot 构建的前后端分离个人博客。前端采用图片横幅、波浪收边、悬浮导航、圆角文章卡片与双侧栏，使用独立实现的 React 组件，并保留自己的个人资料和插图。
+
+前台新增五色主题、跟随系统的明暗模式、正文字号、横幅开关、记忆文章视图、搜索联想、文章日历、回到顶部、正文图片放大和代码复制。图片位置、样式文件和组件说明见 [前台定制指南](docs/frontend-customization.md)。
 
 ## 技术栈
 
@@ -14,7 +16,7 @@ Mizuki 原项目使用 **Astro + Svelte + TypeScript + Tailwind CSS**，并使�
 | 样式与图标 | 原生 CSS、CSS 变量、Lucide React、本地 SVG 插图 |
 | 文章展示 | Marked 解析 Markdown，DOMPurify 清理 HTML，Highlight.js 代码高亮 |
 | 后端 | Java 21、Spring Boot 3.5.6、Spring MVC、Validation、Spring JDBC |
-| 数据库 | MySQL 8.0.16+，utf8mb4，Flyway 版本迁移 |
+| 数据库 | MySQL 8.0.16+，utf8mb4，单文件 SQL 手动建库与升级 |
 | 验证 | Spring Boot 集成测试、H2 MySQL 兼容模式、Playwright 浏览器测试 |
 
 ## 目录
@@ -48,10 +50,10 @@ MyBlog/
 │   │   ├── statistics/       # 阅读去重与统计
 │   │   ├── feed/             # RSS 与站点地图
 │   │   └── site/             # 站点设置与内容计数
-│   ├── src/main/resources/db/migration/
+│   ├── src/main/resources/   # 应用配置，无自动数据库迁移
 │   ├── src/test/             # 集成测试与独立 H2 配置
-│   └── scripts/              # Windows 启动脚本与仅建库 SQL
-├── database/MyBlog.sql       # 可整文件执行的完整初始化 SQL
+│   └── scripts/              # Windows 启动与 Java 格式脚本
+├── database/MyBlog.sql       # 唯一 SQL，完整建库、兼容升级与更新备注
 ├── uploads/                  # 本机上传图片（不提交 Git）
 └── docs/                     # 架构、API、部署与验证记录
 ```
@@ -62,7 +64,7 @@ MyBlog/
 
 ### 1. 创建数据库
 
-在 Navicat、MySQL Workbench 或其他客户端中，用具备建库权限的账号**执行整个 `database/MyBlog.sql` 文件**。它会创建 `MyBlog` 数据库、表及初始文章。不包含删除已有数据的语句，面向新库，已有同名表时不要强制继续执行，也不要重复导入。
+在 Navicat、MySQL Workbench 或其他客户端中，**执行整个 `database/MyBlog.sql` 文件**。新库创建全部表并插入示例文章；已有库仅补齐缺失的表、列、索引和默认配置。可重复执行，不覆盖已有文章、密码、个人设置或歌单，也不会恢复你删除的示例文章。先停止后端并备份数据库，执行成功后再启动。执行账号需有建库、改表、索引和 CREATE ROUTINE 权限，客户端需支持 DELIMITER（Navicat 运行 SQL 文件或 MySQL SOURCE 均可）。
 
 MySQL 命令行也可以这样操作：
 
@@ -73,9 +75,7 @@ mysql> SOURCE D:/MyBlog/database/MyBlog.sql;
 
 本机已准备 `backend/.env`，包含你提供的连接密码，默认用户 `root`、地址 `127.0.0.1:3306`。此文件被 Git 忽略。其他机器复制 `backend/.env.example` 为 `.env` 后填入自己的连接信息。
 
-完整 SQL 已包含 V1 与 V2，所以新机器首次导入后启动应设置 `FLYWAY_BASELINE_ON_MIGRATE=true`。首次启动后 Flyway 建立版本 2 基线，再改回 `false`；后端自动执行 V3–V8。本机已完成基线与升级，当前为 `false`，已有库无需再次导入 SQL。
-
-另一种初始化方式是只执行 `backend/scripts/create-database.sql` 建空库，再设 `FLYWAY_BASELINE_ON_MIGRATE=false` 启动后端，让 Flyway 自动建表和导入示例。两种方式选择一种。
+数据库只维护 `database/MyBlog.sql`，顶部备注每次更新。项目已移除 Flyway 和自动建表：每次涉及数据库的更新，都由你手动执行这一个文件，再启动后端。原有 `flyway_schema_history` 表无需删除，应用不再使用它。
 
 ### 2. 启动后端
 
@@ -142,13 +142,13 @@ npm run test:e2e
 
 ## 当前范围
 
-七步开发路线已完成：公开阅读、管理员登录、文章管理、Markdown 编辑器、图片管理、分类/标签/友链/站点设置、阅读体验、评论审核、RSS、站点地图和阅读统计。小站默认署名为憨Ant，可在后台修改个人资料。音乐播放器、追番页和 SSR 不在本轮路线内；当前 React SPA 若后期特别重视搜索引擎收录，可另外加入预渲染或 SSR。
+七步开发路线已完成：公开阅读、管理员登录、文章管理、Markdown 编辑器、图片管理、分类/标签/友链/站点设置、阅读体验、评论审核、RSS、站点地图和阅读统计。随后增加了连续主题色、QQ 公开歌单播放器、独立追番页及对应后台。小站默认署名为憨Ant，可在后台修改个人资料。当前 React SPA 若后期特别重视搜索引擎收录，可另外加入预渲染或 SSR。
 
 ## 管理后台（第一步已完成）
 
 启动前后端后访问 `http://127.0.0.1:5173/admin`，也可点击页脚“管理后台”。本机初始化账号为 `hanant`，随机生成的初始密码保存在 `backend/.env` 的 `ADMIN_PASSWORD`，与数据库密码无关。
 
-首次启动会执行 V3/V4 迁移，建立 `admin_users` 表并更新仍保持原样的示例内容。无需重导 `database/MyBlog.sql`。仅当管理员表为空时，才用 ADMIN_USERNAME / ADMIN_PASSWORD 创建初始账号，密码经 BCrypt 加密写入数据库；重启不改密码。若需要自己指定初始密码，请在首次创建账号前修改 `.env`，密码须为 12–64 个字符且 UTF-8 编码不超过 72 字节。
+先手动执行 `database/MyBlog.sql`，准备包括 `admin_users` 在内的全部表。仅当管理员表为空时，才用 ADMIN_USERNAME / ADMIN_PASSWORD 创建初始账号，密码经 BCrypt 加密写入数据库；重启不改密码。若需要自己指定初始密码，请在首次创建账号前修改 `.env`，密码须为 12–64 个字符且 UTF-8 编码不超过 72 字节。
 
 后台使用 HttpOnly 会话 Cookie、30 分钟空闲超时、CSRF 校验与后端 ADMIN 权限校验。登录成功和退出后会更新 CSRF 状态。账号或密码错误统一返回 401，同一来源 15 分钟内累计失败 5 次后暂时限流。当前单实例本地限流状态不跨进程共享。
 
@@ -160,7 +160,7 @@ npm run test:e2e
 
 V5 迁移增加文章版本字段，避免多个编辑窗口互相覆盖。出现 409 冲突时保留当前输入，请先复制需要保留的文字，再重新加载最新版本。离开未保存页面时会提醒。编辑器提供 Markdown 实时预览与已有草稿自动保存，使用方法见下文。
 
-重新运行 MyBlogApplication 即会自动执行后续迁移，无需重导建库 SQL。完成情况见 [`docs/roadmap.md`](docs/roadmap.md)。
+数据库更新时手动执行唯一 SQL 文件，再重新运行 MyBlogApplication。完成情况见 [`docs/roadmap.md`](docs/roadmap.md)。
 
 ## Markdown 编辑器（第三步已完成）
 
@@ -191,9 +191,11 @@ V5 迁移增加文章版本字段，避免多个编辑窗口互相覆盖。出�
 
 访客可用昵称提交纯文字评论，默认待审核，后台通过后公开；无需填写邮箱。评论提交保留 CSRF 校验，并有来源限流与机器人诱捕字段。阅读计数按会话和上海日期对每篇文章去重，不能当作独立访客数；从功能启用开始累计，不补算历史阅读。
 
-RSS 为 `/rss.xml`（最新 50 篇摘要），站点地图为 `/sitemap.xml`。上线时在站点设置填写自己的真实域名；本机默认 `http://127.0.0.1:5173`。生产代理与备份说明见部署文档。新增 V6–V8 由 Flyway 执行；本机 MySQL 已升级并完成真实联调，临时数据已清理。
+RSS 为 `/rss.xml`（最新 50 篇摘要），站点地图为 `/sitemap.xml`。上线时在站点设置填写自己的真实域名；本机默认 `http://127.0.0.1:5173`。生产代理与备份说明见部署文档。表结构已统一收录在 `database/MyBlog.sql`，数据库更新由用户手动执行。
 
 ## 代码格式
+
+音乐播放器、独立追番页和连续主题调色已加入。后台入口分别为 `/admin/music`、`/admin/anime`，前台追番地址为 `/anime`。QQ 音乐支持公开歌单导入和公开主页链接，暂不支持账号登录或私密歌单同步。先手动执行 `database/MyBlog.sql` 补齐新表，再重启 `MyBlogApplication`。详细操作见 [`docs/leisure.md`](docs/leisure.md)。
 
 前端执行 `npm run format`，检查用 `npm run format:check`。Java 执行根目录下的 `./backend/scripts/Format-Java.ps1`，检查加 `-Check`；首次运行会下载固定版本的 Google Java Format 至忽略的 target 目录。页面继续每页一个 `XxxPage.tsx`；后端按业务模块划分 controller / service / repository / dto。
 

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Bell, Hash, Leaf, ArrowUpRight } from 'lucide-react'
 import { blogApi } from '../../api/blog'
 import { useAsyncData } from '../../hooks/useAsyncData'
+import ArticleCalendar from '../blog/ArticleCalendar'
 
 export default function RightSidebar() {
   const { data: tags, error, refresh } = useAsyncData(blogApi.tags)
@@ -21,6 +22,7 @@ export default function RightSidebar() {
           HAVE A NICE DAY <Leaf size={13} />
         </span>
       </section>
+      <ArticleCalendar />
       <section className="card sidebar-card">
         <h3>
           <Hash size={17} />

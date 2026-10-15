@@ -20,12 +20,12 @@
 | API 数据对象 | XxxResponse | PostDetailResponse |
 | SQL 表、字段、索引 | snake_case | post_tags、published_at、idx_posts_publication |
 | 数据库名 | 用户指定 | MyBlog |
-| 数据库迁移 | V版本__动作说明.sql | V3__add_comments.sql |
+| 数据库脚本 | 仅一个文件，顶部按日期备注更新 | database/MyBlog.sql |
 | 文档 | kebab-case 或简短小写 | architecture.md |
 
 ## 数据关系
 
-`categories` 与 `posts` 是一对多；`posts` 与 `tags` 通过 `post_tags` 建立多对多关系；`friends` 独立保存友链。主键、唯一键、外键与索引均在 V1 建立。公开接口只查询已发布且发布日期不晚于当前日期的文章，分类、标签计数遵守相同规则。
+`categories` 与 `posts` 是一对多；`posts` 与 `tags` 通过 `post_tags` 建立多对多关系；`friends` 独立保存友链。主键、唯一键、外键与索引统一定义在 `database/MyBlog.sql`。公开接口只查询已发布且发布日期不晚于当前日期的文章，分类、标签计数遵守相同规则。
 
 文章 slug 是唯一稳定的路由标识。正文使用 Markdown；列表不传输完整正文；标签用一次批量查询附加，避免逐篇请求。搜索使用转义后的参数化 LIKE，输入 `%`、`_` 不会扩大为通配符查询。
 
@@ -40,11 +40,11 @@
 
 1. 在 `com.myblog` 下新增业务包，例如 comment。
 2. 按需要添加 controller、service、repository、dto、entity。
-3. 通过新 Flyway 迁移建表，不修改已经执行过的 V1/V2。
+3. 更新唯一 `database/MyBlog.sql`：同步完整表结构、已有库兼容升级语句和顶部更新备注，保持重复执行不覆盖数据。
 4. Controller 返回 ApiResponse，Service 管理事务，Repository 保持参数化 SQL。
 5. 增加模块的行为测试，并更新接口文档。
 
-`database/MyBlog.sql` 是初始建库快照，采用 V1 表结构和 V2 示例数据的个性化版本，不用于已有库升级。首次启动会自动执行 V3/V4 等后续 Flyway 迁移。已执行过的 V1/V2 保持原样，避免破坏历史校验。
+`database/MyBlog.sql` 同时用于新库和已有库；使用 IF NOT EXISTS 及信息表检查避免重复建表、加列和创建索引。仅在首次创建 posts 表时导入示例，单例设置只在不存在时补充。后端不执行数据库初始化或迁移。测试专用配置从同一文件读取完整表结构，跳过 MySQL 建库和存储过程块，装载到 H2；生产包不包含此测试初始化器。
 
 ## 管理员模块
 
@@ -76,7 +76,15 @@
 
 `statistics` 将每天的文章计数写入 post_views，HttpSession 维护本日已读文章（最多 1000 项），避免重复刷新计数。计数是近似阅读量，不提供独立访客推断。`feed` 使用 XMLStreamWriter 转义内容，并过滤非法 XML 控制字符，以设置中的 publicUrl 生成 RSS 和站点地图，不信任请求 Host 来生成链接。
 
-V6 创建 media_files，V7 创建 site_settings 并增加内容管理版本，V8 创建 comments/post_views。既有 V1–V5 保持不变，初始化 SQL 仍为版本 2 快照，启动后迁移到当前版本。
+历史 V6–V8 功能对应 media_files、site_settings、comments、post_views，现已合并到唯一 SQL；不再维护分散的版本迁移文件。
+
+## 音乐与追番
+
+2026-10-15（历史 V9 功能）新增 `anime_entries`、`music_settings`、`music_tracks`。后端 `anime`、`music` 模块各自按 controller/service/repository/dto 分层，管理写操作沿用会话、CSRF 和乐观版本校验。图片删除检查也覆盖追番封面和歌单封面。
+
+`QqMusicClient` 只从固定配置的 Meting 服务解析 QQ 公开歌单，限制连接时间、响应大小及歌曲数量；导入失败保留原歌单。歌单和歌曲元数据保存在数据库，公开主页仅作为链接，不代表 QQ 登录授权。
+
+前端 `AnimePage.tsx`、`AdminAnimePage.tsx`、`AdminMusicPage.tsx` 分别负责独立页面；`MusicPlayer.tsx` 挂载在公共布局中，站内公开页面切换时保留播放，离开公共布局时暂停。详细配置见 [leisure.md](leisure.md)。
 
 ## 扩展边界
 

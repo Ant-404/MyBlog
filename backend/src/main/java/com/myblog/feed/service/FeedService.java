@@ -60,7 +60,7 @@ public class FeedService {
     xml.writeStartElement("urlset");
     xml.writeDefaultNamespace("http://www.sitemaps.org/schemas/sitemap/0.9");
     for (String path :
-        new String[] {"/", "/archives", "/categories", "/tags", "/friends", "/about"}) {
+        new String[] {"/", "/archives", "/categories", "/tags", "/anime", "/friends", "/about"}) {
       xml.writeStartElement("url");
       element(xml, "loc", site.publicUrl() + path);
       xml.writeEndElement();
