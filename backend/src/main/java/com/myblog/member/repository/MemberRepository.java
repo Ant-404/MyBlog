@@ -80,7 +80,7 @@ public class MemberRepository {
         hash,
         email,
         purpose,
-        Timestamp.from(Instant.now().plusSeconds(1800)));
+        Timestamp.from(Instant.now().plusSeconds(600)));
   }
 
   public boolean consume(String hash, String email, String purpose) {

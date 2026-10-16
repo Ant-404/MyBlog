@@ -83,10 +83,10 @@ class MemberIntegrationTest {
   }
 
   private String token(String email, String purpose, boolean expired) {
-    String token = UUID.randomUUID().toString();
+    String token = "012345";
     jdbc.update(
         "INSERT INTO member_tokens(token_hash,email,purpose,expires_at) VALUES (?,?,?,?)",
-        MemberService.hash(token),
+        MemberService.codeHash(email, purpose, token),
         email,
         purpose,
         java.sql.Timestamp.from(Instant.now().plusSeconds(expired ? -60 : 600)));
@@ -110,24 +110,25 @@ class MemberIntegrationTest {
   }
 
   @Test
-  void verifiedRegistrationUsesHashedSingleUseEmailBoundTokens() throws Exception {
+  void verifiedRegistrationUsesHashedSingleUseEmailBoundCodes() throws Exception {
     String email = UUID.randomUUID() + "@example.com";
     mvc.perform(json(post("/api/v1/members/email"), Map.of("email", email, "purpose", "REGISTER")))
         .andExpect(status().isOk());
-    var link = ArgumentCaptor.forClass(String.class);
-    verify(mailer).send(eq(email), eq("REGISTER"), link.capture());
-    String raw = link.getValue().substring(link.getValue().indexOf("&token=") + 7);
+    var code = ArgumentCaptor.forClass(String.class);
+    verify(mailer).send(eq(email), eq("REGISTER"), code.capture());
+    String raw = code.getValue();
+    assertTrue(raw.matches("[0-9]{6}"));
     assertEquals(
         1,
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM member_tokens WHERE token_hash=?",
             Integer.class,
-            MemberService.hash(raw)));
+            MemberService.codeHash(email, "REGISTER", raw)));
     assertEquals(
         0,
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM member_tokens WHERE token_hash=?", Integer.class, raw));
-    var request = Map.of("email", email, "token", raw, "nickname", "新用户", "password", PASSWORD);
+    var request = Map.of("email", email, "code", raw, "nickname", "新用户", "password", PASSWORD);
     mvc.perform(json(post("/api/v1/members/register"), request))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.nickname").value("新用户"))
@@ -143,7 +144,7 @@ class MemberIntegrationTest {
                 Map.of(
                     "email",
                     "different@example.com",
-                    "token",
+                    "code",
                     raw,
                     "nickname",
                     "冒名",
@@ -154,13 +155,13 @@ class MemberIntegrationTest {
 
   @Test
   @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-  void expiredTokensAndFailedDeliveryNeverCreateAccounts() throws Exception {
+  void expiredCodesAndFailedDeliveryNeverCreateAccounts() throws Exception {
     String email = UUID.randomUUID() + "@example.com";
     String raw = token(email, "REGISTER", true);
     mvc.perform(
             json(
                 post("/api/v1/members/register"),
-                Map.of("email", email, "token", raw, "nickname", "过期", "password", PASSWORD)))
+                Map.of("email", email, "code", raw, "nickname", "过期", "password", PASSWORD)))
         .andExpect(status().isBadRequest());
     doThrow(new com.myblog.common.exception.InvalidInputException("邮件失败"))
         .when(mailer)
@@ -216,13 +217,13 @@ class MemberIntegrationTest {
     mvc.perform(
             json(
                 post("/api/v1/members/reset"),
-                Map.of("email", email, "token", raw, "password", "New-Password-2026")))
+                Map.of("email", email, "code", raw, "password", "New-Password-2026")))
         .andExpect(status().isOk());
     mvc.perform(get("/api/v1/members/me").session(session)).andExpect(status().isUnauthorized());
     mvc.perform(
             json(
                 post("/api/v1/members/reset"),
-                Map.of("email", email, "token", raw, "password", PASSWORD)))
+                Map.of("email", email, "code", raw, "password", PASSWORD)))
         .andExpect(status().isBadRequest());
     mvc.perform(json(post("/api/v1/members/login"), Map.of("email", email, "password", PASSWORD)))
         .andExpect(status().isUnauthorized());
@@ -235,6 +236,73 @@ class MemberIntegrationTest {
     mvc.perform(json(post("/api/v1/members/email"), Map.of("email", unknown, "purpose", "RESET")))
         .andExpect(status().isOk());
     verify(mailer, never()).send(eq(unknown), anyString(), anyString());
+  }
+
+  @Test
+  void codesAreBoundToEmailAndPurposeAndWrongAttemptsDoNotConsumeThem() throws Exception {
+    String email = UUID.randomUUID() + "@example.com";
+    String raw = token(email, "REGISTER", false);
+    assertNotEquals(
+        MemberService.codeHash(email, "REGISTER", raw),
+        MemberService.codeHash(email, "RESET", raw));
+    mvc.perform(
+            json(
+                post("/api/v1/members/reset"),
+                Map.of("email", email, "code", raw, "password", PASSWORD)))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            json(
+                post("/api/v1/members/register"),
+                Map.of(
+                    "email",
+                    "other@example.com",
+                    "code",
+                    raw,
+                    "nickname",
+                    "用户",
+                    "password",
+                    PASSWORD)))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            json(
+                post("/api/v1/members/register"),
+                Map.of("email", email, "code", "999999", "nickname", "用户", "password", PASSWORD)))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            json(
+                post("/api/v1/members/register"),
+                Map.of(
+                    "email",
+                    email.toUpperCase(Locale.ROOT),
+                    "code",
+                    raw,
+                    "nickname",
+                    "用户",
+                    "password",
+                    PASSWORD)))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void verificationAttemptsAreLimitedPerEmailAcrossDifferentSources() throws Exception {
+    String email = UUID.randomUUID() + "@example.com";
+    String raw = token(email, "REGISTER", false);
+    for (int attempt = 0; attempt < 10; attempt++) {
+      address = "source-" + UUID.randomUUID();
+      mvc.perform(
+              json(
+                  post("/api/v1/members/register"),
+                  Map.of("email", email, "code", "999999", "nickname", "用户", "password", PASSWORD)))
+          .andExpect(status().isBadRequest());
+    }
+    address = "source-" + UUID.randomUUID();
+    mvc.perform(
+            json(
+                post("/api/v1/members/register"),
+                Map.of("email", email, "code", raw, "nickname", "用户", "password", PASSWORD)))
+        .andExpect(status().isTooManyRequests());
+    assertEquals(
+        0, jdbc.queryForObject("SELECT COUNT(*) FROM members WHERE email=?", Integer.class, email));
   }
 
   @Test

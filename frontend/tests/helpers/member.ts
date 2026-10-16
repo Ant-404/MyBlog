@@ -3,15 +3,15 @@ import { adminMutation } from './admin'
 
 export const memberPassword = 'Browser-Member-Test-2026'
 let cached: { email: string; nickname: string } | undefined
-export async function mailLink(page: Page, email: string) {
+export async function mailCode(page: Page, email: string) {
   const messages = await (
     await page.request.get(`http://127.0.0.1:8092/inbox?email=${encodeURIComponent(email)}`)
   ).json()
   expect(messages.length).toBeGreaterThan(0)
-  const url = /https?:\/\/[^\s]+/.exec(messages.at(-1).text)?.[0]
-  expect(url).toBeTruthy()
-  const parsed = new URL(url!)
-  return parsed.pathname + parsed.search
+  expect(messages.at(-1).text).not.toMatch(/https?:\/\//)
+  const code = /\b[0-9]{6}\b/.exec(messages.at(-1).text)?.[0]
+  expect(code).toBeTruthy()
+  return code!
 }
 export async function loginMember(page: Page) {
   if (!cached) {
@@ -21,13 +21,13 @@ export async function loginMember(page: Page) {
         await adminMutation(page, '/members/email', 'POST', { email, purpose: 'REGISTER' })
       ).status(),
     ).toBe(200)
-    const link = new URL(await mailLink(page, email), 'http://localhost')
+    const code = await mailCode(page, email)
     const nickname = 'FeatureComment'
     expect(
       (
         await adminMutation(page, '/members/register', 'POST', {
           email,
-          token: link.searchParams.get('token'),
+          code,
           nickname,
           password: memberPassword,
         })

@@ -6,13 +6,12 @@ import com.myblog.common.validation.WebAddress;
 import com.myblog.member.dto.MemberModels.*;
 import com.myblog.member.repository.MemberRepository;
 import com.myblog.member.repository.MemberRepository.Account;
-import com.myblog.site.service.SiteSettingsService;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.*;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,20 +23,18 @@ public class MemberService {
   private final MemberRepository repository;
   private final PasswordEncoder encoder;
   private final AccountMailer mailer;
-  private final SiteSettingsService settings;
   private final MemberRateLimiter limiter;
+  private final SecureRandom random = new SecureRandom();
   private final String dummyHash;
 
   public MemberService(
       MemberRepository repository,
       PasswordEncoder encoder,
       AccountMailer mailer,
-      SiteSettingsService settings,
       MemberRateLimiter limiter) {
     this.repository = repository;
     this.encoder = encoder;
     this.mailer = mailer;
-    this.settings = settings;
     this.limiter = limiter;
     dummyHash = encoder.encode(UUID.randomUUID().toString());
   }
@@ -60,6 +57,16 @@ public class MemberService {
     }
   }
 
+  public static String codeHash(String email, String purpose, String code) {
+    return hash(email.trim().toLowerCase(Locale.ROOT) + ":" + purpose + ":" + code);
+  }
+
+  private void verifyCode(String email, String purpose, String code) {
+    limiter.check("verify-email:" + email, 10);
+    if (!repository.consume(codeHash(email, purpose, code), email, purpose))
+      throw new InvalidInputException("验证码错误或已过期，请重新获取");
+  }
+
   private void password(String password) {
     if (password.length() < 10 || password.getBytes(StandardCharsets.UTF_8).length > 72)
       throw new InvalidInputException("密码至少 10 个字符，UTF-8 编码不能超过 72 字节");
@@ -76,20 +83,9 @@ public class MemberService {
     if (input.purpose().equals("RESET")
         && (account.isEmpty() || account.get().profile().status().equals("BANNED"))) return;
     if (input.purpose().equals("REGISTER") && account.isPresent()) return;
-    byte[] bytes = new byte[32];
-    new SecureRandom().nextBytes(bytes);
-    String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    String root = settings.get().publicUrl().replaceAll("/+$", "");
-    String link =
-        root
-            + "/account?mode="
-            + (input.purpose().equals("REGISTER") ? "register" : "reset")
-            + "&email="
-            + URLEncoder.encode(email, StandardCharsets.UTF_8)
-            + "&token="
-            + token;
-    repository.token(hash(token), email, input.purpose());
-    mailer.send(email, input.purpose(), link);
+    String code = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));
+    repository.token(codeHash(email, input.purpose(), code), email, input.purpose());
+    mailer.send(email, input.purpose(), code);
   }
 
   @Transactional
@@ -97,10 +93,14 @@ public class MemberService {
     limiter.check("register:" + address, 10);
     password(input.password());
     String email = email(input.email());
-    if (!repository.consume(hash(input.token()), email, "REGISTER"))
-      throw new InvalidInputException("验证链接无效或已过期，请重新申请");
+    verifyCode(email, "REGISTER", input.code());
     if (repository.email(email).isPresent()) throw new InvalidInputException("无法完成注册，请尝试登录或重置密码");
-    long id = repository.create(email, encoder.encode(input.password()), input.nickname().trim());
+    long id;
+    try {
+      id = repository.create(email, encoder.encode(input.password()), input.nickname().trim());
+    } catch (DuplicateKeyException conflict) {
+      throw new InvalidInputException("无法完成注册，请尝试登录或重置密码");
+    }
     return repository.id(id).orElseThrow().profile();
   }
 
@@ -150,9 +150,8 @@ public class MemberService {
     limiter.check("reset:" + address, 10);
     password(input.password());
     String email = email(input.email());
-    if (!repository.consume(hash(input.token()), email, "RESET"))
-      throw new InvalidInputException("验证链接无效或已过期，请重新申请");
-    var account = repository.email(email).orElseThrow(() -> new InvalidInputException("验证链接无效"));
+    verifyCode(email, "RESET", input.code());
+    var account = repository.email(email).orElseThrow(() -> new InvalidInputException("验证码错误或已过期"));
     if (account.profile().status().equals("BANNED")) throw new InvalidInputException("账号不可用");
     repository.password(account.profile().id(), encoder.encode(input.password()));
   }

@@ -174,10 +174,10 @@
 | --- | --- | --- |
 | GET | /members/config | mailEnabled；未启用不能申请邮件 |
 | GET | /members/session | 当前用户资料或 null，游客/管理员/失效用户正常返回 null |
-| POST | /members/email | email、purpose=REGISTER/RESET；统一成功提示，不返回令牌 |
-| POST | /members/register | email、token、nickname、password；验证后建号，不自动登录 |
+| POST | /members/email | email、purpose=REGISTER/RESET；发送验证码，统一成功提示，不返回验证码 |
+| POST | /members/register | email、code（6 位数字字符串）、nickname、password；验证后建号，不自动登录 |
 | POST | /members/login | email、password；轮换会话与 CSRF |
-| POST | /members/reset | email、token、password；重置并使旧登录失效 |
+| POST | /members/reset | email、code（6 位数字字符串）、password；重置并使旧登录失效 |
 | GET / PUT | /members/me | 读取/修改资料；写 nickname、avatar、bio、version |
 | DELETE | /members/me | password；验证后注销并清除个人资料 |
 | PUT | /members/password | currentPassword、password；改密后退出所有旧会话 |
@@ -197,7 +197,7 @@
 | PATCH | /admin/guestbook/{id} | status=PENDING/APPROVED/REJECTED、version |
 | DELETE | /admin/guestbook/{id}?version=N | 管理员永久删除 |
 
-个人/管理用户资料为 id、email、nickname、avatar、bio、status、version，不含密码。所有分页每页 20 条。密码 10–72 字符且 UTF-8 编码最多 72 字节；邮箱最多 254 字符，统一去首尾空白并转为小写。便签写 content（1–500 字）、color（lavender/peach/mint/sky）。令牌 30 分钟有效，仅限申请邮箱与用途，数据库只存哈希且只用一次。完整部署配置、限流与注销行为见 `docs/members.md`。
+个人/管理用户资料为 id、email、nickname、avatar、bio、status、version，不含密码。所有分页每页 20 条。密码 10–72 字符且 UTF-8 编码最多 72 字节；邮箱最多 254 字符，统一去首尾空白并转为小写。便签写 content（1–500 字）、color（lavender/peach/mint/sky）。邮箱验证码为 6 位数字字符串（保留前导零），10 分钟有效，绑定申请邮箱与用途，数据库只存组合哈希且只用一次。邮件不含跳转链接，重新获取后旧码失效。每邮箱跨来源、跨用途十分钟最多验证 10 次。完整部署配置、限流与注销行为见 `docs/members.md`。
 
 ## 本地音乐上传与资料编辑
 

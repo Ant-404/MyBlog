@@ -1,9 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Mail, ShieldCheck, UserRound } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bell,
+  Eye,
+  EyeOff,
+  Mail,
+  MessageCircle,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react'
 import { memberApi, type Member } from '../api/members'
 import { demoMode, HttpError } from '../api/http'
 import { useMember } from '../contexts/MemberContext'
+import { useSite } from '../contexts/SiteContext'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { useAsyncData } from '../hooks/useAsyncData'
 import DataState from '../components/common/DataState'
@@ -12,23 +23,56 @@ import ContentPagination from '../components/common/ContentPagination'
 export default function AccountPage() {
   usePageTitle('个人中心')
   const { member, loading, error, refresh, setMember } = useMember()
+  const site = useSite()
   const [params, setParams] = useSearchParams()
-  const [mode, setMode] = useState(() =>
-    ['register', 'reset'].includes(params.get('mode') || '') ? params.get('mode')! : 'login',
-  )
-  const [token, setToken] = useState(() => params.get('token') || '')
-  const [email, setEmail] = useState(() => params.get('email') || '')
+  const mode = ['register', 'reset'].includes(params.get('mode') || '')
+    ? params.get('mode')!
+    : 'login'
+  const previousMode = useRef(mode)
+  const [code, setCode] = useState('')
+  const [email, setEmail] = useState('')
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [passwordVisible, setPasswordVisible] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [retryTimes, setRetryTimes] = useState<Record<string, number>>({})
+  const cooldownKey = `${mode}:${email.trim().toLowerCase()}`
+  const retryAt = retryTimes[cooldownKey] || 0
+  const [remaining, setRemaining] = useState(0)
   const config = useAsyncData(memberApi.config)
-  // Keep verification secrets out of later history entries and referrers.
+  // Discard credentials from old verification links; verification now stays in this form.
   useEffect(() => {
-    if (params.has('token')) setParams({ mode }, { replace: true })
-  }, [])
+    const modeChanged = previousMode.current !== mode
+    previousMode.current = mode
+    if (!params.has('token') && !params.has('email')) {
+      if (modeChanged) {
+        setPasswordVisible(false)
+        setCode('')
+        setPassword('')
+        setConfirm('')
+        setSent(false)
+      }
+      return
+    }
+    setCode('')
+    setPassword('')
+    setConfirm('')
+    setMessage('现在使用邮箱验证码，请在当前页面重新获取验证码。')
+    setFailed(false)
+    setSent(false)
+    setParams({ mode }, { replace: true })
+  }, [params, mode, setParams])
+  useEffect(() => {
+    const update = () => setRemaining(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)))
+    update()
+    if (retryAt <= Date.now()) return
+    const timer = window.setInterval(update, 1000)
+    return () => window.clearInterval(timer)
+  }, [retryAt])
   async function action(work: () => Promise<void>) {
     if (busy) return
     setBusy(true)
@@ -45,11 +89,13 @@ export default function AccountPage() {
     }
   }
   function switchMode(next: string) {
-    setMode(next)
-    setToken('')
+    setPasswordVisible(false)
+    setCode('')
     setPassword('')
     setConfirm('')
     setMessage('')
+    setFailed(false)
+    setSent(false)
     setParams(next === 'login' ? {} : { mode: next }, { replace: true })
   }
   if (demoMode)
@@ -60,15 +106,10 @@ export default function AccountPage() {
       </section>
     )
   if (loading) return <p role="status">正在读取登录状态…</p>
-  return (
-    <section className="member-page">
-      <header className="member-heading">
-        <ShieldCheck size={27} />
-        <h1>{member ? '个人中心' : '在这里，留下你的名字'}</h1>
-        <p>邮箱用于验证与找回密码，不会公开展示。所有新评论仍需审核。</p>
-      </header>
+  const feedback = (
+    <>
       {error && (
-        <p role="alert">
+        <p className="form-error" role="alert">
           {error}
           <button className="text-button" onClick={() => void refresh()}>
             重试
@@ -80,141 +121,282 @@ export default function AccountPage() {
           {message}
         </p>
       )}
+    </>
+  )
+  return (
+    <section className={`member-page ${member ? '' : 'member-auth-page'}`}>
+      {member && (
+        <header className="member-heading">
+          <ShieldCheck size={27} />
+          <h1>{member ? '个人中心' : '在这里，留下你的名字'}</h1>
+          <p>邮箱用于验证与找回密码，不会公开展示。所有新评论仍需审核。</p>
+        </header>
+      )}
+      {member && feedback}
       {!member ? (
-        <div className="card member-panel">
-          <div className="member-tabs" role="group" aria-label="账号操作">
-            {[
-              ['login', '登录'],
-              ['register', '注册'],
-              ['reset', '找回密码'],
-            ].map(([key, text]) => (
-              <button key={key} aria-pressed={mode === key} onClick={() => switchMode(key)}>
-                {text}
-              </button>
-            ))}
-          </div>
-          <h2>
-            {mode === 'login'
-              ? '欢迎回来'
-              : mode === 'register'
-                ? token
-                  ? '完成邮箱验证，设置账号'
-                  : '先验证你的邮箱'
-                : '设置一个新密码'}
-          </h2>
-          {config.error && (
-            <p role="alert">
-              {config.error}
-              <button className="text-button" onClick={config.refresh}>
-                重试
-              </button>
-            </p>
-          )}
-          {mode !== 'login' && !config.data?.mailEnabled && (
-            <p className="callout">博主尚未启用邮箱服务，暂时无法注册或找回密码。</p>
-          )}
-          <form
-            className="member-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void action(async () => {
-                if (mode === 'login') {
-                  const profile = await memberApi.login(email, password)
-                  setMember(profile)
-                  setPassword('')
-                  setMessage('登录成功。')
-                } else if (!token) {
-                  await memberApi.email(email, mode === 'register' ? 'REGISTER' : 'RESET')
-                  setMessage(
-                    '如果该邮箱可用于本次操作，验证邮件将发送到你的邮箱。请检查收件箱和垃圾邮件，60 秒内无需重复申请。',
-                  )
-                } else {
-                  if (password !== confirm) throw new Error('两次输入的密码不一致')
-                  if (new TextEncoder().encode(password).length > 72)
-                    throw new Error('密码 UTF-8 编码不能超过 72 字节')
-                  if (mode === 'register')
-                    await memberApi.register(email, token, nickname, password)
-                  else await memberApi.reset(email, token, password)
-                  switchMode('login')
-                  setMessage(
-                    mode === 'register' ? '注册完成，请登录。' : '密码已重置，请重新登录。',
-                  )
-                }
-              })
-            }}
-          >
-            <label>
-              邮箱
-              <input
-                type="email"
-                required
-                maxLength={254}
-                autoComplete="email"
-                value={email}
-                disabled={busy || !!token}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            {mode === 'register' && token && (
+        <div className="member-auth-shell">
+          <aside className="member-auth-story" aria-label="小站介绍">
+            <img
+              className="member-auth-art member-auth-art-light"
+              src="/images/AccountLight.jpg"
+              alt=""
+              aria-hidden="true"
+            />
+            <img
+              className="member-auth-art member-auth-art-dark"
+              src="/images/AccountDark.jpg"
+              alt=""
+              aria-hidden="true"
+            />
+            <div className="member-auth-story-copy">
+              <span className="member-auth-kicker">{site.title} · 读与写之间</span>
+              <h1>
+                读一段文字，
+                <span>留一点回响。</span>
+              </h1>
+              <p>
+                这里记录学习、项目和生活。
+                <br />
+                欢迎来读，也欢迎留下你的想法。
+              </p>
+            </div>
+            <div className="member-auth-benefits">
+              <span>
+                <MessageCircle size={17} aria-hidden="true" />
+                参与评论，分享你的想法
+              </span>
+              <span>
+                <Bell size={17} aria-hidden="true" />
+                收到回复，不错过每次交流
+              </span>
+            </div>
+            <Link to="/" className="member-auth-back">
+              <ArrowLeft size={15} aria-hidden="true" />
+              先随便逛逛
+            </Link>
+          </aside>
+          <div className="card member-panel member-auth-panel">
+            <div className="member-tabs" role="group" aria-label="账号操作">
+              {[
+                ['login', '登录'],
+                ['register', '注册'],
+                ['reset', '找回密码'],
+              ].map(([key, text]) => (
+                <button
+                  key={key}
+                  disabled={busy}
+                  aria-pressed={mode === key}
+                  onClick={() => switchMode(key)}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+            {feedback}
+            {config.error && (
+              <p role="alert">
+                {config.error}
+                <button className="text-button" onClick={config.refresh}>
+                  重试
+                </button>
+              </p>
+            )}
+            {mode !== 'login' && config.loading && <p role="status">正在检查邮箱服务…</p>}
+            {mode !== 'login' && config.data?.mailEnabled === false && (
+              <p className="callout">
+                邮箱服务尚未启用，暂时无法发送验证码；已收到的有效验证码仍可使用。
+              </p>
+            )}
+            {mode !== 'login' && sent && (
+              <p className="callout">
+                请在当前页面输入邮件中的 6
+                位验证码。未收到邮件时，请检查垃圾邮件或在倒计时结束后重新发送。
+              </p>
+            )}
+            <form
+              className={`member-form member-auth-form member-auth-form-${mode}`}
+              autoComplete="off"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void action(async () => {
+                  if (mode === 'login') {
+                    const profile = await memberApi.login(email.trim(), password)
+                    setMember(profile)
+                    setPassword('')
+                    setPasswordVisible(false)
+                    setMessage('登录成功。')
+                  } else {
+                    if (!/^[0-9]{6}$/.test(code)) throw new Error('请输入邮件中的 6 位数字验证码')
+                    if (mode === 'register' && !nickname.trim())
+                      throw new Error('请输入昵称，不能只填写空格')
+                    if (password !== confirm) throw new Error('两次输入的密码不一致')
+                    if (new TextEncoder().encode(password).length > 72)
+                      throw new Error('密码 UTF-8 编码不能超过 72 字节')
+                    if (mode === 'register')
+                      await memberApi.register(email.trim(), code, nickname.trim(), password)
+                    else await memberApi.reset(email.trim(), code, password)
+                    switchMode('login')
+                    setMessage(
+                      mode === 'register' ? '注册完成，请登录。' : '密码已重置，请重新登录。',
+                    )
+                  }
+                })
+              }}
+            >
               <label>
-                昵称
+                邮箱
                 <input
+                  type="email"
                   required
-                  maxLength={64}
-                  autoComplete="nickname"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
+                  maxLength={254}
+                  name="member-email"
+                  autoComplete="off"
+                  placeholder="输入你的邮箱地址"
+                  value={email}
+                  disabled={busy}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setCode('')
+                    setSent(false)
+                  }}
                 />
               </label>
-            )}
-            {(mode === 'login' || token) && (
-              <label>
-                密码
-                <input
-                  type="password"
-                  required
-                  minLength={mode === 'login' ? 1 : 10}
-                  maxLength={72}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </label>
-            )}
-            {token && (
-              <>
+              {mode !== 'login' && (
+                <div className="member-auth-code">
+                  <label htmlFor="member-code">邮箱验证码</label>
+                  <div className="member-auth-code-row">
+                    <input
+                      id="member-code"
+                      name="member-verification-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      minLength={6}
+                      maxLength={6}
+                      required
+                      disabled={busy}
+                      placeholder="6 位数字验证码"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                    />
+                    <button
+                      className="member-auth-send"
+                      type="button"
+                      disabled={busy || !config.data?.mailEnabled || remaining > 0}
+                      onClick={(event) => {
+                        const emailInput =
+                          event.currentTarget.form?.querySelector<HTMLInputElement>(
+                            'input[type="email"]',
+                          )
+                        if (!emailInput?.reportValidity()) return
+                        void action(async () => {
+                          await memberApi.email(
+                            email.trim(),
+                            mode === 'register' ? 'REGISTER' : 'RESET',
+                          )
+                          setCode('')
+                          setSent(true)
+                          setRetryTimes((current) => ({
+                            ...current,
+                            [cooldownKey]: Date.now() + 60_000,
+                          }))
+                          setMessage(
+                            '如果该邮箱可用于本次操作，验证码将发送到你的邮箱，10 分钟内有效。',
+                          )
+                        })
+                      }}
+                    >
+                      {remaining > 0
+                        ? `${remaining} 秒后可重新发送`
+                        : sent
+                          ? '重新发送验证码'
+                          : '获取验证码'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {mode === 'register' && (
                 <label>
-                  确认密码
+                  昵称
                   <input
-                    type="password"
                     required
-                    minLength={10}
-                    maxLength={72}
-                    autoComplete="new-password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
+                    maxLength={64}
+                    autoComplete="nickname"
+                    placeholder="大家该怎么称呼你"
+                    disabled={busy}
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
                   />
                 </label>
-                <p className="muted">
-                  至少 10 个字符，建议使用独立的长密码。验证链接有效期 30 分钟。
-                </p>
-              </>
-            )}
-            <button
-              className="button"
-              disabled={busy || (mode !== 'login' && !config.data?.mailEnabled)}
-            >
-              {busy
-                ? '处理中…'
-                : mode === 'login'
-                  ? '登录账号'
-                  : token
-                    ? mode === 'register'
+              )}
+              <div className="member-auth-password">
+                <label htmlFor="member-password">密码</label>
+                <div className="member-auth-password-row">
+                  <input
+                    id="member-password"
+                    type={passwordVisible ? 'text' : 'password'}
+                    required
+                    minLength={mode === 'login' ? 1 : 10}
+                    maxLength={72}
+                    name={mode === 'login' ? 'member-login-password' : 'member-new-password'}
+                    autoComplete={mode === 'login' ? 'off' : 'new-password'}
+                    placeholder={mode === 'login' ? '输入你的密码' : '至少 10 个字符'}
+                    disabled={busy}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-label={passwordVisible ? '隐藏密码' : '显示密码'}
+                    aria-pressed={passwordVisible}
+                    onClick={() => setPasswordVisible((visible) => !visible)}
+                  >
+                    {passwordVisible ? (
+                      <EyeOff size={17} aria-hidden="true" />
+                    ) : (
+                      <Eye size={17} aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              {mode !== 'login' && (
+                <>
+                  <label className="member-auth-confirm">
+                    确认密码
+                    <input
+                      type="password"
+                      required
+                      minLength={10}
+                      maxLength={72}
+                      autoComplete="new-password"
+                      placeholder="再次输入密码"
+                      disabled={busy}
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                    />
+                  </label>
+                  <p className="muted member-auth-hint">
+                    密码至少 10 个字符，建议使用独立的长密码。验证码有效期 10 分钟，仅可使用一次。
+                  </p>
+                </>
+              )}
+              <button className="button member-auth-submit" disabled={busy}>
+                {busy
+                  ? '处理中…'
+                  : mode === 'login'
+                    ? '登录账号'
+                    : mode === 'register'
                       ? '完成注册'
-                      : '重置密码'
-                    : '发送验证邮件'}
-            </button>
-          </form>
+                      : '重置密码'}
+                <ArrowRight size={17} aria-hidden="true" />
+              </button>
+            </form>
+            <p className="member-auth-footnote">
+              <ShieldCheck size={14} aria-hidden="true" />
+              邮箱仅用于验证与找回密码，不会公开展示。
+            </p>
+          </div>
         </div>
       ) : (
         <>
@@ -262,7 +444,9 @@ export default function AccountPage() {
       )}
       <p className="member-privacy">
         <Mail size={15} />{' '}
-        不公开邮箱；不在浏览器保存密码；注销后清除邮箱与个人资料，历史评论显示为已注销用户。
+        {member
+          ? '不公开邮箱；不在浏览器保存密码；注销后清除邮箱与个人资料，历史评论显示为已注销用户。'
+          : '还想说点什么？在留言墙留下一句问候。'}
         <Link to="/guestbook">去留言墙看看</Link>
       </p>
     </section>

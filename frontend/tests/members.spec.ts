@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { login, adminMutation, createPost, deletePost } from './helpers/admin'
-import { loginMember, mailLink, memberPassword } from './helpers/member'
+import { loginMember, mailCode, memberPassword } from './helpers/member'
 
 test('anonymous guestbook keeps input when the running service rejects guest access', async ({
   page,
@@ -144,11 +144,10 @@ test('QQ-compatible SMTP verification, profile, reset, and account closure work 
   const email = `account-${Date.now()}@example.com`
   await page.goto('/account?mode=register')
   await page.getByLabel('邮箱', { exact: true }).fill(email)
-  await page.getByRole('button', { name: '发送验证邮件' }).click()
-  await expect(page.getByRole('status')).toContainText('验证邮件')
-  const registration = await mailLink(page, email)
-  await page.goto(registration)
-  await expect(page).not.toHaveURL(/token=/)
+  await page.getByRole('button', { name: '获取验证码', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('验证码')
+  await page.getByLabel('邮箱验证码', { exact: true }).fill(await mailCode(page, email))
+  await expect(page).toHaveURL(/\/account\?mode=register$/)
   await page.getByLabel('昵称', { exact: true }).fill('邮箱验证用户')
   await page.getByLabel('密码', { exact: true }).fill(memberPassword)
   await page.getByLabel('确认密码', { exact: true }).fill(memberPassword)
@@ -166,9 +165,9 @@ test('QQ-compatible SMTP verification, profile, reset, and account closure work 
   await page.getByRole('button', { name: '退出登录', exact: true }).click()
   await page.getByRole('button', { name: '找回密码', exact: true }).click()
   await page.getByLabel('邮箱', { exact: true }).fill(email)
-  await page.getByRole('button', { name: '发送验证邮件' }).click()
-  await expect(page.getByRole('status')).toContainText('验证邮件')
-  await page.goto(await mailLink(page, email))
+  await page.getByRole('button', { name: '获取验证码', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('验证码')
+  await page.getByLabel('邮箱验证码', { exact: true }).fill(await mailCode(page, email))
   const next = 'New-Member-Password-2026'
   await page.getByLabel('密码', { exact: true }).fill(next)
   await page.getByLabel('确认密码', { exact: true }).fill(next)

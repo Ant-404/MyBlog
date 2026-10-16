@@ -54,13 +54,13 @@ export const memberApi = {
     request<Pick<Member, 'id' | 'nickname' | 'avatar' | 'bio'>>(`/people/${id}`),
   email: (email: string, purpose: 'REGISTER' | 'RESET') =>
     mutate('/members/email', 'POST', { email, purpose }),
-  register: (email: string, token: string, nickname: string, password: string) =>
-    mutate<Member>('/members/register', 'POST', { email, token, nickname, password }),
+  register: (email: string, code: string, nickname: string, password: string) =>
+    mutate<Member>('/members/register', 'POST', { email, code, nickname, password }),
   login: (email: string, password: string) =>
     mutate<Member>('/members/login', 'POST', { email, password }),
   logout: () => mutate('/auth/logout', 'POST'),
-  reset: (email: string, token: string, password: string) =>
-    mutate('/members/reset', 'POST', { email, token, password }),
+  reset: (email: string, code: string, password: string) =>
+    mutate('/members/reset', 'POST', { email, code, password }),
   edit: (member: Member) => mutate<Member>('/members/me', 'PUT', member),
   password: (currentPassword: string, password: string) =>
     mutate('/members/password', 'PUT', { currentPassword, password }),

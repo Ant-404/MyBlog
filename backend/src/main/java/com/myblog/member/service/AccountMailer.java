@@ -25,14 +25,16 @@ public class AccountMailer {
     return enabled && !from.isBlank();
   }
 
-  public void send(String email, String purpose, String link) {
+  public void send(String email, String purpose, String code) {
     if (!enabled()) throw new InvalidInputException("邮箱服务尚未启用，请联系博主");
     var message = new SimpleMailMessage();
     message.setFrom(from);
     message.setTo(email);
-    message.setSubject(purpose.equals("REGISTER") ? "验证邮箱，加入憨Ant的小站" : "重置你的小站密码");
+    message.setSubject(purpose.equals("REGISTER") ? "小站注册验证码" : "小站密码重置验证码");
     message.setText(
-        "请打开以下链接完成操作，有效期为 30 分钟，仅能使用一次。\n\n" + link + "\n\n如果不是你发起的请求，请忽略此邮件。请勿把链接转发给他人。");
+        "你的邮箱验证码是："
+            + code
+            + "\n\n请在小站当前页面输入验证码，有效期为 10 分钟，仅能使用一次。\n\n如果不是你发起的请求，请忽略此邮件。请勿向他人透露验证码。");
     try {
       sender.send(message);
     } catch (org.springframework.mail.MailException error) {

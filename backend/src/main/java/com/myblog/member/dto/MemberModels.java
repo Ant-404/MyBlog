@@ -25,7 +25,7 @@ public final class MemberModels {
 
   public record RegisterRequest(
       @NotBlank @Email @Size(max = 254) String email,
-      @NotBlank @Size(max = 100) String token,
+      @NotBlank @Pattern(regexp = "[0-9]{6}") String code,
       @NotBlank @Size(min = 10, max = 72) String password,
       @NotBlank @Size(max = 64) String nickname) {}
 
@@ -34,7 +34,7 @@ public final class MemberModels {
 
   public record ResetRequest(
       @NotBlank @Email @Size(max = 254) String email,
-      @NotBlank @Size(max = 100) String token,
+      @NotBlank @Pattern(regexp = "[0-9]{6}") String code,
       @NotBlank @Size(min = 10, max = 72) String password) {}
 
   public record EditProfile(

@@ -67,11 +67,12 @@ export default function AdminLoginPage() {
         <span className="eyebrow">A SPACE TO CREATE</span>
         <h1>{site.author}的管理后台</h1>
         <p className="muted">登录后，继续记录与创作。</p>
-        <form onSubmit={login}>
+        <form onSubmit={login} autoComplete="off">
           <label htmlFor="admin-username">管理员账号</label>
           <input
             id="admin-username"
-            autoComplete="username"
+            name="admin-login-username"
+            autoComplete="off"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             placeholder="输入管理员账号"
@@ -84,7 +85,8 @@ export default function AdminLoginPage() {
             <input
               id="admin-password"
               type={visible ? 'text' : 'password'}
-              autoComplete="current-password"
+              name="admin-login-password"
+              autoComplete="off"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="输入密码"
