@@ -29,25 +29,15 @@ public class CommentController {
   public ApiResponse<Void> submit(
       @PathVariable @Size(max = 160) String slug,
       @Valid @RequestBody CommentWriteRequest input,
-      HttpServletRequest request,
-      org.springframework.security.core.Authentication authentication) {
-    service.submit(slug, input, request.getRemoteAddr(), authentication);
+      HttpServletRequest request) {
+    service.submit(slug, input, request.getRemoteAddr());
     return ApiResponse.success(null);
   }
 
   @GetMapping("/api/v1/admin/comments")
   public ApiResponse<PageResponse<AdminCommentResponse>> admin(
-      @RequestParam(defaultValue = "PENDING") @Pattern(regexp = "|PENDING|APPROVED|REJECTED")
-          String status,
       @RequestParam(defaultValue = "1") @Min(1) @Max(100000) int page) {
-    return ApiResponse.success(service.adminList(status, page));
-  }
-
-  @PatchMapping("/api/v1/admin/comments/{id}")
-  public ApiResponse<Void> state(
-      @PathVariable long id, @Valid @RequestBody CommentStateRequest input) {
-    service.state(id, input);
-    return ApiResponse.success(null);
+    return ApiResponse.success(service.adminList(page));
   }
 
   @DeleteMapping("/api/v1/admin/comments/{id}")

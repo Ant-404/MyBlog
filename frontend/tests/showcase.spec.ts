@@ -129,14 +129,11 @@ test('series editor orders articles and excludes drafts from the public reading 
   }
 })
 
-test('legacy moments routes redirect to guestbook moderation and public wall', async ({ page }) => {
+test('legacy moments routes redirect to guestbook management and public wall', async ({ page }) => {
   await login(page)
   await page.goto('/admin/moments')
-  await expect(page).toHaveURL(/\/admin\/members\?tab=notes$/)
-  await expect(page.getByRole('button', { name: '留言墙审核', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await expect(page).toHaveURL(/\/admin\/guestbook$/)
+  await expect(page.getByRole('heading', { name: /^留言墙管理/ })).toBeVisible()
   await expect(
     page.getByRole('navigation', { name: '后台导航' }).getByRole('link', { name: '说说管理' }),
   ).toHaveCount(0)

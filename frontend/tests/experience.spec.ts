@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
-import { loginMember } from './helpers/member'
 import { localMusic } from './helpers/music'
 
 test('wave crests rise and fall continuously and respect motion preferences', async ({ page }) => {
@@ -162,10 +161,9 @@ test('long code can expand/wrap and image gallery navigates without losing opene
 })
 
 test('comment draft survives reload and remains isolated to its article', async ({ page }) => {
-  await loginMember(page)
   await page.goto('/posts/hello-world')
   await page.getByLabel('评论内容').fill('还没写完的评论')
-  await expect(page.locator('.comment-counter')).toContainText('草稿已保存')
+  await expect(page.locator('.comment-editor-note')).toContainText('草稿已保存')
   await page.reload()
   await expect(page.getByLabel('评论内容')).toHaveValue('还没写完的评论')
   await page.goto('/')

@@ -12,11 +12,6 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node tests/fixtures/mail-server.mjs',
-      url: 'http://127.0.0.1:8092/health',
-      reuseExistingServer: false,
-    },
-    {
       command: 'node tests/fixtures/music-server.mjs',
       url: 'http://127.0.0.1:8091/health',
       reuseExistingServer: false,
@@ -27,15 +22,6 @@ export default defineConfig({
       cwd: '../backend',
       env: {
         METING_API_URL: 'http://127.0.0.1:8091/meting',
-        MEMBER_MAIL_ENABLED: 'true',
-        SMTP_HOST: '127.0.0.1',
-        SMTP_PORT: '2526',
-        SMTP_AUTH: 'false',
-        SMTP_SSL: 'false',
-        SMTP_STARTTLS: 'false',
-        SMTP_FROM: 'test@example.com',
-        SMTP_USERNAME: '',
-        SMTP_PASSWORD: '',
       },
       url: 'http://127.0.0.1:8081/api/v1/site/stats',
       timeout: 120000,

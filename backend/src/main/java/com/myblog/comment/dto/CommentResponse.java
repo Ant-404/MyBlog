@@ -5,7 +5,6 @@ public record CommentResponse(
     String author,
     String content,
     String createdAt,
-    Long memberId,
-    String avatar,
+    String url,
     Long parentId,
     String replyTo) {}

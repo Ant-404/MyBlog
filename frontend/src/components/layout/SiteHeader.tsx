@@ -18,7 +18,6 @@ import { useSite } from '../../contexts/SiteContext'
 import { useTheme } from '../../hooks/useTheme'
 import AppearanceSettings from './AppearanceSettings'
 import SearchBox from './SearchBox'
-import { useMember } from '../../contexts/MemberContext'
 
 const navIcons: Record<string, typeof Home> = {
   '/': Home,
@@ -31,7 +30,6 @@ const navIcons: Record<string, typeof Home> = {
 }
 
 export default function SiteHeader() {
-  const { member } = useMember()
   const site = useSite()
   const { dark, toggle } = useTheme()
   const location = useLocation()
@@ -90,14 +88,6 @@ export default function SiteHeader() {
         </nav>
         <div className="header-actions">
           <SearchBox />
-          <Link
-            className="icon-button"
-            to="/account"
-            aria-label={member ? '个人中心' : '用户登录与注册'}
-            title={member ? member.nickname : '用户登录与注册'}
-          >
-            <UserRound size={19} />
-          </Link>
           <button
             className="icon-button"
             onClick={toggle}

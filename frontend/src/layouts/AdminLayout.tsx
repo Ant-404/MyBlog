@@ -82,9 +82,9 @@ export default function AdminLayout() {
             <FileText size={18} />
             文章管理
           </NavLink>
-          <NavLink to="/admin/members">
+          <NavLink to="/admin/guestbook">
             <MessageSquare size={18} />
-            用户与社区
+            留言墙管理
           </NavLink>
           <NavLink to="/admin/media">
             <Images size={18} />
@@ -119,7 +119,7 @@ export default function AdminLayout() {
           </NavLink>
           <NavLink to="/admin/comments">
             <MessageSquare size={18} />
-            评论审核
+            评论管理
           </NavLink>
           <NavLink to="/admin/statistics">
             <BarChart3 size={18} />
@@ -142,13 +142,13 @@ export default function AdminLayout() {
                 taxonomy: '内容组织',
                 friends: '友链管理',
                 settings: '站点设置',
-                comments: '评论审核',
+                comments: '评论管理',
                 statistics: '阅读统计',
                 anime: '追番管理',
                 music: '音乐管理',
                 projects: '项目展示',
                 series: '内容组织 / 文章专题',
-                members: '用户与社区',
+                guestbook: '留言墙管理',
               }[location.pathname.split('/')[2]] || '工作台'}
             </small>
           </span>

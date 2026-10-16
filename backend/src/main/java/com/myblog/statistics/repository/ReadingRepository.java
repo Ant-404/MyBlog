@@ -34,8 +34,7 @@ public class ReadingRepository {
             "SELECT COALESCE(SUM(view_count),0) FROM post_views WHERE view_date=?",
             Long.class,
             today);
-    long pending =
-        jdbc.queryForObject("SELECT COUNT(*) FROM comments WHERE status='PENDING'", Long.class);
+    long comments = jdbc.queryForObject("SELECT COUNT(*) FROM comments", Long.class);
     var daily =
         jdbc.query(
             "SELECT view_date,SUM(view_count) AS count FROM post_views WHERE view_date>=? GROUP BY"
@@ -54,6 +53,6 @@ public class ReadingRepository {
                     rs.getString("slug"),
                     rs.getString("title"),
                     rs.getLong("count")));
-    return new ReadingStatistics(total, current, pending, daily, posts);
+    return new ReadingStatistics(total, current, comments, daily, posts);
   }
 }

@@ -1,4 +1,4 @@
-package com.myblog.member.service;
+package com.myblog.guestbook;
 
 import com.myblog.common.exception.TooManyRequestsException;
 import java.time.Instant;
@@ -6,7 +6,7 @@ import java.util.*;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MemberRateLimiter {
+public class GuestbookRateLimiter {
   private record Window(long start, int count) {}
 
   private final Map<String, Window> windows = new HashMap<>();

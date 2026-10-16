@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { ChevronDown, Copy, MessageSquare, PenLine, RefreshCw } from 'lucide-react'
-import { memberApi } from '../api/members'
-import { useMember } from '../contexts/MemberContext'
+import { guestbookApi } from '../api/guestbook'
 import { useAsyncData } from '../hooks/useAsyncData'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { demoMode, HttpError } from '../api/http'
@@ -11,12 +9,13 @@ import ContentPagination from '../components/common/ContentPagination'
 
 export default function GuestbookPage() {
   usePageTitle('留言墙')
-  const { member, loading: memberLoading, refresh: refreshMember } = useMember()
   const [page, setPage] = useState(1)
   const data = useAsyncData(
     useCallback(
       () =>
-        demoMode ? Promise.resolve({ items: [], total: 0, page, size: 20 }) : memberApi.notes(page),
+        demoMode
+          ? Promise.resolve({ items: [], total: 0, page, size: 20 })
+          : guestbookApi.notes(page),
       [page],
     ),
   )
@@ -49,20 +48,19 @@ export default function GuestbookPage() {
     } catch (cause) {
       setFailed(true)
       setMessage(
-        cause instanceof HttpError && !member && [401, 403].includes(cause.status)
+        cause instanceof HttpError && [401, 403].includes(cause.status)
           ? '匿名留言暂时不可用，填写的内容已保留，请稍后重试。'
           : cause instanceof Error
             ? cause.message
             : '操作失败',
       )
-      void refreshMember()
     } finally {
       setBusy(false)
     }
   }
   return (
     <section className="card content-page guestbook-page" aria-label="留言广场">
-      {!memberLoading && (!member || member.status === 'ACTIVE') && !demoMode ? (
+      {!demoMode ? (
         <div className="guestbook-composer">
           <button
             type="button"
@@ -79,34 +77,31 @@ export default function GuestbookPage() {
             </span>
             <span className="guestbook-compose-copy">
               <strong>{editorOpen ? '写下此刻想说的话' : '路过这里，留下一句问候'}</strong>
-              <span>{member ? `${member.nickname}，欢迎回来` : '无需注册，也可以匿名留言'}</span>
+              <span>无需注册，也可以匿名留言</span>
             </span>
             <span className="guestbook-compose-label">{editorOpen ? '收起编辑' : '写留言'}</span>
             <ChevronDown size={16} />
           </button>
           <div id="guestbook-editor" hidden={!editorOpen}>
             <form
-              className="member-panel member-form"
+              className="community-panel community-form"
               onSubmit={(event) => {
                 event.preventDefault()
                 if (!busy)
                   void action(async () => {
-                    await memberApi.addNote(content, color, website)
+                    await guestbookApi.addNote(content, color, website)
                     setContent('')
                     setPreview(false)
                     setEditorOpen(false)
                     restoreEditorFocus.current = true
-                    setMessage('便签已提交，审核通过后会贴到墙上。')
+                    setMessage('便签已发布，已贴到留言墙。')
+                    if (page === 1) data.refresh()
+                    else setPage(1)
                   })
               }}
             >
               <p className="comment-identity">
-                以 <strong>{member?.nickname || '匿名用户'}</strong> 留言，审核通过后上墙。
-                {!member && (
-                  <>
-                    <Link to="/account">登录或注册</Link>后可在个人中心管理自己的便签。
-                  </>
-                )}
+                以 <strong>匿名用户</strong> 留言，发布后立即上墙。
               </p>
               <label>
                 写张便签
@@ -119,7 +114,7 @@ export default function GuestbookPage() {
                   onChange={(e) => setContent(e.target.value)}
                 />
               </label>
-              <div className="member-row-actions">
+              <div className="community-row-actions">
                 <label>
                   便签颜色
                   <select value={color} onChange={(e) => setColor(e.target.value)}>
@@ -135,7 +130,7 @@ export default function GuestbookPage() {
                     ))}
                   </select>
                 </label>
-                <span className="muted">{content.length} / 500 · 审核后公开</span>
+                <span className="muted">{content.length} / 500 · 即时公开</span>
               </div>
               <label className="comment-honeypot" aria-hidden="true">
                 Website
@@ -146,7 +141,7 @@ export default function GuestbookPage() {
                   onChange={(e) => setWebsite(e.target.value)}
                 />
               </label>
-              <div className="member-row-actions">
+              <div className="community-row-actions">
                 <button className="button" disabled={busy || !content.trim()}>
                   {busy ? '提交中…' : '贴上便签'}
                 </button>
@@ -174,10 +169,10 @@ export default function GuestbookPage() {
                       </span>
                       <div>
                         <div className="guestbook-author">
-                          <strong>{member?.nickname || '匿名用户'}</strong>
-                          <span className="guestbook-author-tag">{member ? '成员' : '访客'}</span>
+                          <strong>匿名用户</strong>
+                          <span className="guestbook-author-tag">访客</span>
                         </div>
-                        <time>审核后上墙</time>
+                        <time>发布后立即上墙</time>
                       </div>
                     </header>
                     <p>{content.trim() || '写下想说的话，这里会显示便签上墙后的样子。'}</p>
@@ -188,13 +183,7 @@ export default function GuestbookPage() {
           </div>
         </div>
       ) : (
-        <p className="member-panel">
-          {demoMode
-            ? '预览模式不接受便签。'
-            : memberLoading
-              ? '正在读取登录状态…'
-              : '账号已禁言，暂时无法发布便签。'}
-        </p>
+        <p className="community-panel">预览模式不接受便签。</p>
       )}
       {message && (
         <p role={failed ? 'alert' : 'status'} className={failed ? 'form-error' : 'form-success'}>
@@ -220,7 +209,7 @@ export default function GuestbookPage() {
           <span className="guestbook-live-dot" />
           最新留言
         </span>
-        <span>按发布时间排序 · 审核后公开</span>
+        <span>按发布时间排序 · 即时公开</span>
       </div>
       <DataState loading={data.loading} error={data.error} onRetry={data.refresh}>
         <div className="guestbook-wall">
@@ -228,14 +217,12 @@ export default function GuestbookPage() {
             <article className={`guestbook-note note-${note.color}`} key={note.id}>
               <header className="guestbook-note-header">
                 <span className="guestbook-avatar" aria-hidden="true">
-                  {note.memberId == null ? <MessageSquare size={18} /> : note.author.slice(0, 1)}
+                  <MessageSquare size={18} />
                 </span>
                 <div>
                   <div className="guestbook-author">
                     <strong>{note.author}</strong>
-                    <span className="guestbook-author-tag">
-                      {note.memberId == null ? '访客' : '成员'}
-                    </span>
+                    <span className="guestbook-author-tag">访客</span>
                   </div>
                   <time dateTime={note.createdAt}>
                     {note.createdAt.replace('T', ' ').slice(0, 16)}
@@ -258,22 +245,6 @@ export default function GuestbookPage() {
                   <Copy size={13} />
                   复制留言
                 </button>
-                {member && member.id === note.memberId && (
-                  <button
-                    className="text-button"
-                    disabled={busy}
-                    onClick={() => {
-                      if (window.confirm('删除自己的便签吗？'))
-                        void action(async () => {
-                          await memberApi.deleteNote(note)
-                          data.refresh()
-                          setMessage('便签已删除。')
-                        })
-                    }}
-                  >
-                    删除我的便签
-                  </button>
-                )}
               </footer>
             </article>
           ))}
@@ -282,7 +253,7 @@ export default function GuestbookPage() {
           <div className="showcase-empty">
             <MessageSquare />
             <h2>第一张便签，等你来写</h2>
-            <p>审核通过的留言会出现在这里。</p>
+            <p>发布的留言会立即出现在这里。</p>
           </div>
         )}
         {data.data && (

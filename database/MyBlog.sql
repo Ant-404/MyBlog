@@ -6,7 +6,7 @@
 -- 执行账号需要 CREATE / ALTER / INDEX / CREATE ROUTINE 等权限；先备份已有数据库。
 -- 不包含删库、删表操作。历史 flyway_schema_history 表保留但不再使用。
 -- ------------------------
--- 历史更新记录（当前文件已合并 V1-V12，下面的记录不代表可单独执行的更新块）
+-- 历史更新记录（当前文件已合并 V1-V13，下面的记录不代表可单独执行的更新块）
 -- [V1-V2] 基础文章、分类、标签、友链与示例内容。
 -- [V3-V4] 管理员表与憨Ant的初始资料。
 -- [V5] 文章编辑版本与后台排序索引。
@@ -17,12 +17,13 @@
 -- [V10 | 2026-10-15] 项目展示、文章专题、说说及有序文章/图片关联；不插入个人示例内容。
 -- [V11 | 2026-10-15] 邮箱验证会员、一次性令牌、评论账号与回复、通知、举报和留言墙。
 -- [V12 | 2026-10-15] 留言墙支持匿名便签，允许 guestbook_entries.member_id 为空。
+-- [V13 | 2026-10-16] 取消访客账号，评论新增私有邮箱和可选网址；旧会员表保留历史引用。
 -- [整理 | 2026-10-15] 合并为唯一文件，移除 Flyway，改为手动执行。
 -- ------------------------
 -- 后续维护约定：在本文件末尾追加基于已有数据库的增量更新，不修改已有 SQL。
 -- 每次更新用“-- ------------------------”分隔，注明版本、日期、用途和执行范围。
 -- 已执行当前版本的数据库，后续仅执行尚未执行的完整更新块。
--- 当前 V12 的升级语句仍位于第二节存储过程内，不能只选取其中的 IF 片段执行。
+-- 当前 V13 的升级语句仍位于第二节存储过程内，不能只选取其中的 IF 片段执行。
 
 -- ------------------------
 -- 执行环境：MySQL 字符集、数据库选择和首次安装标记。
@@ -37,7 +38,7 @@ SET @myblog_new_install = NOT EXISTS (
 -- @mysql-only-end
 
 -- ------------------------
--- 一、最新完整表结构（合并至 V12）。已有表与数据保持不变。
+-- 一、最新完整表结构（合并至 V13）。已有表与数据保持不变。
 -- CREATE TABLE IF NOT EXISTS 只补建缺失的表；已有表的字段升级由第二节处理。
 CREATE TABLE IF NOT EXISTS showcase_entries (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -187,7 +188,9 @@ CREATE TABLE IF NOT EXISTS comments (
     post_id BIGINT NOT NULL,
     author VARCHAR(64) NOT NULL,
     content VARCHAR(2000) NOT NULL,
-    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    guest_email VARCHAR(254) NOT NULL DEFAULT '',
+    guest_url VARCHAR(500) NOT NULL DEFAULT '',
+    status VARCHAR(16) NOT NULL DEFAULT 'APPROVED',
     version INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     member_id BIGINT,
@@ -227,7 +230,7 @@ CREATE TABLE IF NOT EXISTS guestbook_entries (
     member_id BIGINT NULL,
     content VARCHAR(500) NOT NULL,
     color VARCHAR(16) NOT NULL DEFAULT 'lavender',
-    status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+    status VARCHAR(16) NOT NULL DEFAULT 'APPROVED',
     version INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_guestbook_member FOREIGN KEY (member_id) REFERENCES members(id),
@@ -290,6 +293,12 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS myblog_apply_schema_20261015$$
 CREATE PROCEDURE myblog_apply_schema_20261015()
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'comments' AND column_name = 'guest_email') THEN
+        ALTER TABLE comments ADD COLUMN guest_email VARCHAR(254) NOT NULL DEFAULT '';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'comments' AND column_name = 'guest_url') THEN
+        ALTER TABLE comments ADD COLUMN guest_url VARCHAR(500) NOT NULL DEFAULT '';
+    END IF;
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'guestbook_entries' AND column_name = 'member_id' AND is_nullable = 'NO') THEN
         ALTER TABLE guestbook_entries MODIFY COLUMN member_id BIGINT NULL;
     END IF;
@@ -510,6 +519,6 @@ WHERE NOT EXISTS (SELECT 1 FROM music_settings WHERE id = 1);
 
 -- ------------------------
 -- 后续增量更新追加区
--- 当前基线：V12（2026-10-15）；此处暂未追加新的 SQL。
+-- 当前基线：V13（2026-10-16）；此处暂未追加新的 SQL。
 -- 下次更新在文件尾部另起分隔块，注明版本、日期、前置版本和具体用途。
 -- 每个更新块应可在对应已有数据库上完整执行，不依赖前文的临时变量或存储过程。

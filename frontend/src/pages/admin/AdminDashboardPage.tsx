@@ -51,8 +51,8 @@ export default function AdminDashboardPage() {
         <div>
           <Link to="/admin/posts">管理文章</Link>
           <Link to="/admin/taxonomy">分类、标签与专题</Link>
-          <Link to="/admin/comments">审核评论</Link>
-          <Link to="/admin/members?tab=notes">审核留言墙</Link>
+          <Link to="/admin/comments">管理评论</Link>
+          <Link to="/admin/guestbook">管理留言墙</Link>
           <Link to="/admin/media">管理图片</Link>
           <Link to="/admin/settings">站点设置</Link>
         </div>

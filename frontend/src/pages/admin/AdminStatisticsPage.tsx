@@ -41,9 +41,9 @@ export default function AdminStatisticsPage() {
                 <strong>{data.todayReads}</strong>
               </section>
               <section className="card">
-                <span>待审核评论</span>
-                <strong>{data.pendingComments}</strong>
-                <Link to="/admin/comments">前往审核</Link>
+                <span>待管理评论</span>
+                <strong>{data.totalComments}</strong>
+                <Link to="/admin/comments">管理评论</Link>
               </section>
             </div>
             <section className="card management-card statistics-chart">

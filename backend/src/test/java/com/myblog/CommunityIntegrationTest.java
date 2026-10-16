@@ -30,6 +30,7 @@ class CommunityIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   @Autowired JdbcTemplate jdbc;
+  private final String address = "comment-test-" + UUID.randomUUID();
 
   private String fixture(String status, LocalDate date) {
     String slug = "community-test-" + UUID.randomUUID();
@@ -48,11 +49,11 @@ class CommunityIntegrationTest {
   }
 
   @Test
-  void anonymousCommentsRequireApprovalAndVersionChecks() throws Exception {
+  void visitorCommentsPublishImmediatelyAndOnlyAdminCanDeleteWithCurrentVersion() throws Exception {
     String slug = fixture("PUBLISHED", LocalDate.now().minusDays(1));
     String body =
-        "{\"author\":\"CommunityTest\",\"content\":\"<script>plain"
-            + " text</script>\",\"website\":\"\"}";
+        mapper.writeValueAsString(
+            Map.of("author", "Visitor", "email", "private@example.com", "content", "**hello**"));
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
                 .with(anonymous())
@@ -61,44 +62,45 @@ class CommunityIntegrationTest {
                 .content(body))
         .andExpect(status().isAccepted());
     mvc.perform(get("/api/v1/posts/" + slug + "/comments").with(anonymous()))
-        .andExpect(jsonPath("$.data.total").value(0));
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].author").value("Visitor"))
+        .andExpect(jsonPath("$.data.items[0].email").doesNotExist());
     long id =
         jdbc.queryForObject(
-            "SELECT c.id FROM comments c JOIN posts p ON p.id=c.post_id WHERE p.slug=?",
+            "SELECT MAX(c.id) FROM comments c JOIN posts p ON p.id=c.post_id WHERE p.slug=?",
             Long.class,
             slug);
+    // Historical moderation values no longer control visibility.
+    jdbc.update("UPDATE comments SET status='REJECTED' WHERE id=?", id);
+    mvc.perform(get("/api/v1/posts/" + slug + "/comments").with(anonymous()))
+        .andExpect(jsonPath("$.data.total").value(1));
     mvc.perform(
-            patch("/api/v1/admin/comments/" + id)
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"status\":\"APPROVED\",\"version\":0}"))
+            delete("/api/v1/admin/comments/" + id)
+                .param("version", "0")
+                .with(anonymous())
+                .with(csrf()))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(delete("/api/v1/admin/comments/" + id).param("version", "1").with(csrf()))
+        .andExpect(status().isConflict());
+    mvc.perform(delete("/api/v1/admin/comments/" + id).param("version", "0").with(csrf()))
         .andExpect(status().isOk());
     mvc.perform(get("/api/v1/posts/" + slug + "/comments").with(anonymous()))
-        .andExpect(jsonPath("$.data.total").value(1))
-        .andExpect(jsonPath("$.data.items[0].content").value("<script>plain text</script>"))
-        .andExpect(jsonPath("$.data.items[0].author").value("匿名用户"))
-        .andExpect(jsonPath("$.data.items[0].memberId").isEmpty());
-    mvc.perform(delete("/api/v1/admin/comments/" + id).param("version", "0").with(csrf()))
-        .andExpect(status().isConflict());
-    mvc.perform(
-            patch("/api/v1/admin/comments/" + id)
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"status\":\"REJECTED\",\"version\":1}"))
-        .andExpect(status().isOk());
-    mvc.perform(get("/api/v1/posts/" + slug + "/comments"))
         .andExpect(jsonPath("$.data.total").value(0));
-    mvc.perform(delete("/api/v1/admin/comments/" + id).param("version", "2").with(csrf()))
-        .andExpect(status().isOk());
   }
 
   @Test
   void commentsEnforceCsrfRateLimitAndPublicVisibility() throws Exception {
     String slug = fixture("PUBLISHED", LocalDate.now().minusDays(1));
-    String body = "{\"author\":\"CommunityRateTest\",\"content\":\"hello\",\"website\":\"\"}";
+    String body =
+        "{\"author\":\"CommunityRateTest\",\"email\":\"visitor@example.com\",\"content\":\"hello\",\"website\":\"\"}";
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
                 .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isForbidden());
@@ -106,6 +108,11 @@ class CommunityIntegrationTest {
       mvc.perform(
               post("/api/v1/posts/" + slug + "/comments")
                   .with(anonymous())
+                  .with(
+                      request -> {
+                        request.setRemoteAddr(address);
+                        return request;
+                      })
                   .with(csrf())
                   .with(
                       request -> {
@@ -118,6 +125,11 @@ class CommunityIntegrationTest {
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
                 .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
                 .with(csrf())
                 .with(
                     request -> {
@@ -133,10 +145,174 @@ class CommunityIntegrationTest {
     mvc.perform(
             post("/api/v1/posts/" + slug + "/comments")
                 .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void visitorIdentityStaysPrivateAndReplyTargetsMustBeOnSamePost() throws Exception {
+    String slug = fixture("PUBLISHED", LocalDate.now().minusDays(1));
+    String other = fixture("PUBLISHED", LocalDate.now().minusDays(1));
+    var input = new HashMap<String, Object>();
+    input.put("author", "  来访者  ");
+    input.put("email", "PRIVATE@example.com");
+    input.put("url", "https://example.com/visitor");
+    input.put("content", "**你好** 😊");
+    mvc.perform(
+            post("/api/v1/posts/" + slug + "/comments")
+                .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(input)))
+        .andExpect(status().isAccepted());
+    long id =
+        jdbc.queryForObject(
+            "SELECT MAX(c.id) FROM comments c JOIN posts p ON p.id=c.post_id WHERE p.slug=?",
+            Long.class,
+            slug);
+    input.put("parentId", id);
+    mvc.perform(
+            get("/api/v1/posts/" + slug + "/comments")
+                .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    }))
+        .andExpect(jsonPath("$.data.items[0].author").value("来访者"))
+        .andExpect(jsonPath("$.data.items[0].url").value("https://example.com/visitor"))
+        .andExpect(jsonPath("$.data.items[0].email").doesNotExist())
+        .andExpect(
+            content()
+                .string(
+                    org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("private@example.com"))));
+    mvc.perform(get("/api/v1/admin/comments").param("status", ""))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("private@example.com")));
+    mvc.perform(
+            post("/api/v1/posts/" + other + "/comments")
+                .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(input)))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            post("/api/v1/posts/" + slug + "/comments")
+                .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(input)))
+        .andExpect(status().isAccepted());
+  }
+
+  @Test
+  void visitorCommentsValidateIdentityAndUrlsAndIgnoreBotFields() throws Exception {
+    String slug = fixture("PUBLISHED", LocalDate.now().minusDays(1));
+    Map<String, Object> valid =
+        Map.of("author", "访客", "email", "visitor@example.com", "content", "hello");
+    for (var invalid :
+        List.of(
+            Map.of("author", " "),
+            Map.of("email", "not-email"),
+            Map.of("url", "javascript:alert(1)"),
+            Map.of("content", "x".repeat(501)))) {
+      var input = new HashMap<String, Object>(valid);
+      input.putAll(invalid);
+      mvc.perform(
+              post("/api/v1/posts/" + slug + "/comments")
+                  .with(anonymous())
+                  .with(
+                      request -> {
+                        request.setRemoteAddr(address);
+                        return request;
+                      })
+                  .with(csrf())
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(mapper.writeValueAsString(input)))
+          .andExpect(status().isBadRequest());
+    }
+    var bot = new HashMap<String, Object>(valid);
+    bot.put("website", "https://spam.example.com");
+    mvc.perform(
+            post("/api/v1/posts/" + slug + "/comments")
+                .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(bot)))
+        .andExpect(status().isAccepted());
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM comments c JOIN posts p ON p.id=c.post_id WHERE p.slug=?",
+            Long.class,
+            slug));
+    mvc.perform(
+            post("/api/v1/members/login")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/members/session")).andExpect(status().isForbidden());
+  }
+
+  @Test
+  void guestbookPublishesImmediatelyAndAdminCanDelete() throws Exception {
+    String text = "新便签-" + UUID.randomUUID();
+    mvc.perform(
+            post("/api/v1/guestbook")
+                .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("content", text, "color", "sky"))))
+        .andExpect(status().isOk());
+    long id =
+        jdbc.queryForObject("SELECT id FROM guestbook_entries WHERE content=?", Long.class, text);
+    mvc.perform(get("/api/v1/guestbook").with(anonymous()))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString(text)));
+    mvc.perform(
+            delete("/api/v1/admin/guestbook/" + id)
+                .param("version", "0")
+                .with(anonymous())
+                .with(csrf()))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(delete("/api/v1/admin/guestbook/" + id).param("version", "0").with(csrf()))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/guestbook").with(anonymous()))
+        .andExpect(
+            content()
+                .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(text))));
   }
 
   @Test
@@ -148,6 +324,11 @@ class CommunityIntegrationTest {
               post("/api/v1/posts/" + slug + "/view")
                   .session(session)
                   .with(anonymous())
+                  .with(
+                      request -> {
+                        request.setRemoteAddr(address);
+                        return request;
+                      })
                   .with(csrf()))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.data").value(1));
@@ -155,6 +336,11 @@ class CommunityIntegrationTest {
             post("/api/v1/posts/" + slug + "/view")
                 .session(new MockHttpSession())
                 .with(anonymous())
+                .with(
+                    request -> {
+                      request.setRemoteAddr(address);
+                      return request;
+                    })
                 .with(csrf()))
         .andExpect(jsonPath("$.data").value(2));
     mvc.perform(get("/api/v1/admin/statistics")).andExpect(jsonPath("$.data.todayReads").value(2));
@@ -172,7 +358,14 @@ class CommunityIntegrationTest {
     factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
     for (String path : List.of("/rss.xml", "/sitemap.xml")) {
       String xml =
-          mvc.perform(get(path).with(anonymous()))
+          mvc.perform(
+                  get(path)
+                      .with(anonymous())
+                      .with(
+                          request -> {
+                            request.setRemoteAddr(address);
+                            return request;
+                          }))
               .andExpect(status().isOk())
               .andReturn()
               .getResponse()

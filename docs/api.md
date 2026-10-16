@@ -119,16 +119,15 @@
 | GET | /posts/{slug}/neighbors | previous/next 摘要或 null；按公开文章发布日期、ID 排序 |
 | GET | /posts/{slug}/view | 阅读计数，data 为数字 |
 | POST | /posts/{slug}/view | 同一会话同一天同一文章去重；需 CSRF，可匿名 |
-| GET | /posts/{slug}/comments?page=N | 公开评论（含注册用户待审核评论），每页 20 条 |
-| POST | /posts/{slug}/comments | content、website、可选 parentId；返回 202，默认待审核；需 CSRF，可匿名；注册用户先展示后审核，游客审核通过后展示，author/memberId 由服务端决定 |
-| GET | /admin/comments?status=PENDING&page=1 | 审核列表，每页 20 条，status 可为空或 PENDING/APPROVED/REJECTED |
-| PATCH | /admin/comments/{id} | status、version，版本过期返回 409 |
+| GET | /posts/{slug}/comments?page=N | 全部公开评论，每页 20 条 |
+| POST | /posts/{slug}/comments | author、email、url、content、website、可选 parentId；返回 202，立即展示，需 CSRF，无需登录 |
+| GET | /admin/comments?page=1 | 全部评论，每页 20 条 |
 | DELETE | /admin/comments/{id}?version=N | 永久删除评论 |
-| GET | /admin/statistics | totalReads、todayReads、pendingComments、daily、posts |
+| GET | /admin/statistics | totalReads、todayReads、totalComments、daily、posts |
 | GET | /feed.xml | RSS XML，最新 50 篇公开摘要；另有根路径 /rss.xml |
 | GET | /sitemap.xml | XML 站点地图；另有根路径 /sitemap.xml |
 
-表中除根路径说明外均以 `/api/v1` 为前缀。评论昵称来自账号，content 最长 2000，按纯文字展示；website 是应留空的诱捕字段。评论关闭时提交返回 400，每个来源地址和账号 10 分钟最多 5 次，超限返回 429 RATE_LIMITED。管理评论增加 slug、postTitle、status、version；公开评论返回 id、author、content、createdAt、memberId、avatar、parentId、replyTo，不含邮箱。历史游客 memberId 为 null，parentId 是同一文章内已通过审核的评论 ID。
+表中除根路径说明外均以 `/api/v1` 为前缀。昵称和邮箱必填，网址可选；评论正文最长 500 字。website 为留空的诱捕字段。评论关闭时返回 400，每个来源十分钟最多 5 次，超限返回 429。公开评论不含邮箱；管理员列表包含邮箱、文章和时间信息。回复目标必须是同一文章中存在的评论。
 
 阅读统计日期以 Asia/Shanghai 计算，daily 为近 30 天有数据的日期及 count；posts 为前 20 篇文章及 count。它不代表独立访客。所有文章关联公开接口对草稿和未来日期文章返回 404，RSS 和站点地图遵守同一公开范围。
 
@@ -166,51 +165,12 @@
 
 项目状态 IN_PROGRESS / COMPLETED / ARCHIVED，专题 ONGOING / COMPLETED，说说为空字符串。标题最多 200 字，说说标题可为空；摘要最多 500 字；项目和专题正文最多 20000 字，说说正文为 1–5000 字；技术栈最多 20 项、每项 50 字，关联文章最多 100 篇且不能重复，说说图片最多 9 张。技术栈与源码、演示链接仅用于项目；多图仅用于说说，说说不支持文章关联。封面与图片沿用已有图片地址校验，项目外链仅允许 HTTP(S)。管理接口需管理员会话，写操作需 CSRF；版本过期返回 409 并保留数据库原内容。
 
-## 会员与互动（V11）
+## 访客评论与留言墙（2026-10-16）
 
-以下均以 `/api/v1` 为前缀。写操作均需 CSRF；`/members/` 下除 config、session、email、register、login、reset 外需要 MEMBER 角色，`/admin/` 仍只允许 ADMIN。
+访客无需登录或注册。`POST /posts/{slug}/comments` 使用 JSON：author（必填，1–64 字）、email（必填，邮箱格式，最多 254 字）、url（可选 HTTP/HTTPS 网址，最多 500 字）、content（必填，最多 500 字）、parentId（可选，必须是本文章存在的评论）、website（隐藏诱捕字段，正常为空）。写操作需 CSRF；每来源十分钟最多 5 次。成功返回 202，评论立即公开。
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | /members/config | mailEnabled；未启用不能申请邮件 |
-| GET | /members/session | 当前用户资料或 null，游客/管理员/失效用户正常返回 null |
-| POST | /members/email | email、purpose=REGISTER/RESET；发送验证码，统一成功提示，不返回验证码 |
-| POST | /members/register | email、code（6 位数字字符串）、nickname、password；验证后建号，不自动登录 |
-| POST | /members/login | email、password；轮换会话与 CSRF |
-| POST | /members/reset | email、code（6 位数字字符串）、password；重置并使旧登录失效 |
-| GET / PUT | /members/me | 读取/修改资料；写 nickname、avatar、bio、version |
-| DELETE | /members/me | password；验证后注销并清除个人资料 |
-| PUT | /members/password | currentPassword、password；改密后退出所有旧会话 |
-| GET | /people/{id} | 公开 id、nickname、avatar、bio；封禁/注销账号不提供公开资料 |
-| GET | /members/comments?page=1 | 本人评论，含审核状态和 version |
-| DELETE | /members/comments/{id}?version=N | 只允许本人删除 |
-| GET | /members/notifications?page=1 | 公开回复的通知（含注册用户待审核回复）；拒绝的回复、隐藏/未来文章不提供链接 |
-| PATCH | /members/notifications/{id} | 仅本人标为已读 |
-| POST | /comments/{id}/reports | reason 最多 500 字；需正常用户，同一用户同一评论不可重复举报 |
-| GET | /admin/members?keyword=&page=1 | 管理用户列表，含邮箱与版本 |
-| PATCH | /admin/members/{id} | status=ACTIVE/MUTED/BANNED、version |
-| GET / PATCH | /admin/reports、/admin/reports/{id} | 举报列表 / 标为已处理 |
-| GET / POST | /guestbook?page=1 | 公开便签列表 / 游客或正常注册用户提交待审核便签；POST 需 CSRF，content 最多 500 字、color、可选 website 诱捕字段；游客 memberId=null、author=匿名用户 |
-| GET | /members/guestbook?page=1 | 本人所有审核状态的便签 |
-| DELETE | /members/guestbook/{id}?version=N | 只允许本人删除 |
-| GET | /admin/guestbook?page=1 | 所有便签及审核状态 |
-| PATCH | /admin/guestbook/{id} | status=PENDING/APPROVED/REJECTED、version |
-| DELETE | /admin/guestbook/{id}?version=N | 管理员永久删除 |
+`GET /posts/{slug}/comments?page=1` 每页 20 条，返回全部评论；字段为 id、author、content、createdAt、url、parentId、replyTo，不含邮箱和账号身份。`/admin/comments` 需要 ADMIN 权限；删除使用版本校验，不提供审核和状态筛选，管理员响应额外包含 email；邮箱未经验证，不代表账号身份。正文以原始 Markdown 保存，前台与预览使用相同的受限 HTML 清理规则。
 
-个人/管理用户资料为 id、email、nickname、avatar、bio、status、version，不含密码。所有分页每页 20 条。密码 10–72 字符且 UTF-8 编码最多 72 字节；邮箱最多 254 字符，统一去首尾空白并转为小写。便签写 content（1–500 字）、color（lavender/peach/mint/sky）。邮箱验证码为 6 位数字字符串（保留前导零），10 分钟有效，绑定申请邮箱与用途，数据库只存组合哈希且只用一次。邮件不含跳转链接，重新获取后旧码失效。每邮箱跨来源、跨用途十分钟最多验证 10 次。完整部署配置、限流与注销行为见 `docs/members.md`。
+`GET /guestbook?page=1` 返回全部便签；`POST /guestbook` 写 content（最多 500 字）、color（lavender/peach/mint/sky）和隐藏 website。无需账号，按来源十分钟最多 3 次，需 CSRF。发布后立即公开；`GET /admin/guestbook` 查看全部便签，`DELETE /admin/guestbook/{id}?version=N` 删除便签，不提供审核接口。
 
-## 本地音乐上传与资料编辑
-
-以下路径均以 `/api/v1` 为前缀。写操作仅 ADMIN 可用，并要求 CSRF。资料保存在音乐目录的 `library.json`，无需 SQL 变更。
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | /music/local | 公开 name、enabled、tracks |
-| GET | /admin/music/local | 管理歌曲列表 |
-| POST | /admin/music/local | multipart file，音频最多 50MB，返回完整列表，201 |
-| PUT | /admin/music/local/{id} | JSON title、artist（各最多120字，title必填）、version；过期409 |
-| POST | /admin/music/local/{id}/cover?version=N | multipart file，封面 JPEG/PNG，最多5MB/2000万像素，重新编码；过期409 |
-| GET | /music/local/{id}/audio | 音频 Resource，支持 Range/206 |
-| GET | /music/local/{id}/cover?v=N | 歌曲封面；无封面404，v为缓存版本 |
-
-歌曲字段为 id、title、artist、audioUrl、cover、version。文件路径由服务端根据 id 查找，不接受任意用户路径。后台读取/写入不再使用旧 QQ 接口，旧接口仅保留兼容。
+访客登录、注册、个人中心、公开账号页、会员通知、会员举报与会员管理接口已移除。后台管理员登录仍为 `/auth/login`。旧会员数据表仅用于保留历史内容引用，不再提供访客身份或认证功能。部署先执行 `database/MyBlog.sql` 的幂等结构升级，为 comments 补充 guest_email、guest_url，再重启后端。

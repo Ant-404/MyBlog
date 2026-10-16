@@ -14,26 +14,23 @@ export default function BlogLayout() {
   const site = useSite()
   const location = useLocation()
   const article = /^\/(posts|projects|series)\/[^/]+\/?$/.test(location.pathname)
-  const account = location.pathname === '/account'
   useEffect(() => {
     if (!location.hash) window.scrollTo({ top: 0, behavior: 'instant' })
   }, [location.pathname])
   return (
-    <div
-      className={`blog-layout ${article || account ? 'article-layout' : ''} ${account ? 'account-layout' : ''}`}
-    >
+    <div className={`blog-layout ${article ? 'article-layout' : ''}`}>
       <a href="#main-content" className="skip-link">
         跳到主要内容
       </a>
       <SiteHeader />
-      {!article && !account && <HeroBanner />}
+      {!article && <HeroBanner />}
       <div className="page-shell">
-        {!article && !account && <ProfileSidebar />}
+        {!article && <ProfileSidebar />}
         <main id="main-content" className="main-content" tabIndex={-1}>
           {demoMode && <div className="demo-notice">界面预览 · 当前使用演示数据</div>}
           <Outlet />
         </main>
-        {account ? null : article ? (
+        {article ? (
           <aside id="article-sidebar" className="article-sidebar" aria-label="阅读辅助" />
         ) : (
           <RightSidebar />

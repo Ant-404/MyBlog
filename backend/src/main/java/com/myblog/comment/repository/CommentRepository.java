@@ -27,21 +27,10 @@ public class CommentRepository {
         .orElseThrow(() -> new ResourceNotFoundException("文章不存在"));
   }
 
-  public static String publiclyVisible(String alias) {
-    String prefix = alias.isEmpty() ? "" : alias + ".";
-    return "("
-        + prefix
-        + "status='APPROVED' OR ("
-        + prefix
-        + "status='PENDING' AND "
-        + prefix
-        + "member_id IS NOT NULL))";
-  }
-
-  public long create(long postId, CommentWriteRequest input, Long memberId, String nickname) {
+  public long create(long postId, CommentWriteRequest input, String url) {
     if (input.parentId() != null
         && jdbc.queryForObject(
-                "SELECT COUNT(*) FROM comments WHERE id=? AND post_id=? AND " + publiclyVisible(""),
+                "SELECT COUNT(*) FROM comments WHERE id=? AND post_id=?",
                 Long.class,
                 input.parentId(),
                 postId)
@@ -51,14 +40,16 @@ public class CommentRepository {
         connection -> {
           var statement =
               connection.prepareStatement(
-                  "INSERT INTO comments(post_id,author,content,member_id,parent_id) VALUES"
-                      + " (?,?,?,?,?)",
+                  "INSERT INTO"
+                      + " comments(post_id,author,content,guest_email,guest_url,parent_id,status)"
+                      + " VALUES (?,?,?,?,?,?,'APPROVED')",
                   new String[] {"id"});
           statement.setLong(1, postId);
-          statement.setString(2, nickname);
+          statement.setString(2, input.author().trim());
           statement.setString(3, input.content().trim());
-          statement.setObject(4, memberId, java.sql.Types.BIGINT);
-          statement.setObject(5, input.parentId(), java.sql.Types.BIGINT);
+          statement.setString(4, input.email().trim().toLowerCase(java.util.Locale.ROOT));
+          statement.setString(5, url);
+          statement.setObject(6, input.parentId(), java.sql.Types.BIGINT);
           return statement;
         },
         key);
@@ -66,51 +57,35 @@ public class CommentRepository {
   }
 
   public long count(long id) {
-    return jdbc.queryForObject(
-        "SELECT COUNT(*) FROM comments WHERE post_id=? AND " + publiclyVisible(""), Long.class, id);
+    return jdbc.queryForObject("SELECT COUNT(*) FROM comments WHERE post_id=?", Long.class, id);
   }
 
   public List<CommentResponse> list(long id, int page) {
     return jdbc.query(
-        "SELECT c.*,m.nickname,m.avatar,parent.member_id AS parent_member,parent.author AS"
-            + " parent_author,pm.nickname AS parent_nickname FROM comments c LEFT JOIN members m ON"
-            + " m.id=c.member_id LEFT JOIN comments parent ON parent.id=c.parent_id AND"
-            + publiclyVisible("parent")
-            + " LEFT JOIN members pm ON pm.id=parent.member_id WHERE"
-            + " c.post_id=? AND "
-            + publiclyVisible("c")
-            + " ORDER BY c.id DESC LIMIT 20 OFFSET ?",
+        "SELECT c.*,parent.author AS reply_author FROM comments c LEFT JOIN comments parent ON"
+            + " parent.id=c.parent_id AND parent.post_id=c.post_id"
+            + " WHERE c.post_id=? ORDER BY c.id DESC LIMIT 20 OFFSET ?",
         (rs, n) ->
             new CommentResponse(
                 rs.getLong("id"),
-                rs.getObject("member_id") == null
-                    ? "匿名用户"
-                    : rs.getString("nickname") == null
-                        ? rs.getString("author")
-                        : rs.getString("nickname"),
+                rs.getString("author"),
                 rs.getString("content"),
                 rs.getString("created_at"),
-                rs.getObject("member_id", Long.class),
-                rs.getString("avatar"),
+                rs.getString("guest_url"),
                 rs.getObject("parent_id", Long.class),
-                rs.getObject("parent_member") == null && rs.getString("parent_author") != null
-                    ? "匿名用户"
-                    : rs.getString("parent_nickname") == null
-                        ? rs.getString("parent_author")
-                        : rs.getString("parent_nickname")),
+                rs.getString("reply_author")),
         id,
         (page - 1) * 20);
   }
 
-  public long adminCount(String status) {
-    return jdbc.queryForObject(
-        "SELECT COUNT(*) FROM comments WHERE (?='' OR status=?)", Long.class, status, status);
+  public long adminCount() {
+    return jdbc.queryForObject("SELECT COUNT(*) FROM comments", Long.class);
   }
 
-  public List<AdminCommentResponse> adminList(String status, int page) {
+  public List<AdminCommentResponse> adminList(int page) {
     return jdbc.query(
-        "SELECT c.*,p.slug,p.title FROM comments c JOIN posts p ON p.id=c.post_id WHERE (?='' OR"
-            + " c.status=?) ORDER BY c.id DESC LIMIT 20 OFFSET ?",
+        "SELECT c.*,p.slug,p.title FROM comments c JOIN posts p ON p.id=c.post_id ORDER BY c.id"
+            + " DESC LIMIT 20 OFFSET ?",
         (rs, n) ->
             new AdminCommentResponse(
                 rs.getLong("id"),
@@ -118,36 +93,11 @@ public class CommentRepository {
                 rs.getString("title"),
                 rs.getString("author"),
                 rs.getString("content"),
-                rs.getString("status"),
                 rs.getInt("version"),
                 rs.getString("created_at"),
-                rs.getObject("member_id", Long.class)),
-        status,
-        status,
+                rs.getString("guest_email"),
+                rs.getString("guest_url")),
         (page - 1) * 20);
-  }
-
-  public int state(long id, CommentStateRequest input) {
-    return jdbc.update(
-        "UPDATE comments SET status=?,version=version+1 WHERE id=? AND version=?",
-        input.status(),
-        id,
-        input.version());
-  }
-
-  public void notifyReply(long id, String status) {
-    if (!status.equals("APPROVED") && !status.equals("PENDING")) return;
-    jdbc.update(
-        "INSERT INTO member_notifications(member_id,comment_id,message) SELECT"
-            + " parent.member_id,c.id,'你的评论收到了一条回复' FROM comments c JOIN comments parent ON"
-            + " parent.id=c.parent_id JOIN members m ON m.id=parent.member_id WHERE c.id=? AND"
-            + publiclyVisible("parent")
-            + " AND "
-            + publiclyVisible("c")
-            + " AND (c.member_id IS NULL OR parent.member_id<>c.member_id) AND m.status<>'DELETED'"
-            + " AND NOT EXISTS (SELECT 1 FROM member_notifications n WHERE"
-            + " n.member_id=parent.member_id AND n.comment_id=c.id)",
-        id);
   }
 
   public int delete(long id, int version) {

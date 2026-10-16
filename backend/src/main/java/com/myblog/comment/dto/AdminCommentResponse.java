@@ -6,7 +6,7 @@ public record AdminCommentResponse(
     String postTitle,
     String author,
     String content,
-    String status,
     int version,
     String createdAt,
-    Long memberId) {}
+    String email,
+    String url) {}

@@ -6,29 +6,29 @@ import type { Plugin } from 'vite'
 import { localMusic } from './build/localMusic'
 
 // Public assets keep their original URLs. Discover them at build time and on dev reload.
-function homeImages(): Plugin {
-  const id = '\0virtual:home-images'
+function publicImages(name: string, folder: string, pattern: RegExp): Plugin {
+  const id = `\0virtual:${name}-images`
   let directory = ''
   return {
-    name: 'home-images',
+    name: `${name}-images`,
     configResolved(config) {
-      directory = resolve(config.publicDir, 'images')
+      directory = resolve(config.publicDir, folder)
     },
     resolveId(source) {
-      if (source === 'virtual:home-images') return id
+      if (source === `virtual:${name}-images`) return id
     },
     load(source) {
       if (source !== id) return
       const files = readdirSync(directory)
-        .filter((file) => /^home\d*\.(jpe?g|png|webp|avif)$/i.test(file))
+        .filter((file) => pattern.test(file))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      return `export default ${JSON.stringify(files.map((file) => `/images/${file}`))}`
+      return `export default ${JSON.stringify(files.map((file) => `/${folder}/${encodeURIComponent(file)}`))}`
     },
     configureServer(server) {
       const reload = (file: string) => {
         if (
           !file.replaceAll('\\', '/').startsWith(directory.replaceAll('\\', '/') + '/') ||
-          !/^home\d*\.(jpe?g|png|webp|avif)$/i.test(file.split(/[\\/]/).pop() || '')
+          !pattern.test(file.split(/[\\/]/).pop() || '')
         )
           return
         const module = server.moduleGraph.getModuleById(id)
@@ -41,7 +41,12 @@ function homeImages(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), homeImages(), localMusic()],
+  plugins: [
+    react(),
+    publicImages('home', 'images', /^home\d*\.(jpe?g|png|webp|avif)$/i),
+    publicImages('user', 'images/user', /\.(jpe?g|png|webp|avif|gif)$/i),
+    localMusic(),
+  ],
   server: {
     port: 5173,
     // Wait for new/updated source files to finish writing before transforming them.

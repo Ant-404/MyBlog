@@ -92,7 +92,7 @@ export default function AdminSettingsPage() {
                   disabled={busy}
                   onChange={(e) => setForm({ ...form, commentsEnabled: e.target.checked })}
                 />
-                开放评论（需审核）
+                开放评论
               </label>
               <button className="button" disabled={busy}>
                 保存站点设置

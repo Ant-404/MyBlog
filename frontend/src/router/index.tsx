@@ -15,10 +15,8 @@ const ProjectsPage = lazy(() => import('../pages/ProjectsPage'))
 const ProjectDetailPage = lazy(() => import('../pages/ProjectDetailPage'))
 const SeriesPage = lazy(() => import('../pages/SeriesPage'))
 const SeriesDetailPage = lazy(() => import('../pages/SeriesDetailPage'))
-const AccountPage = lazy(() => import('../pages/AccountPage'))
-const MemberProfilePage = lazy(() => import('../pages/MemberProfilePage'))
 const GuestbookPage = lazy(() => import('../pages/GuestbookPage'))
-const AdminMembersPage = lazy(() => import('../pages/admin/AdminMembersPage'))
+const AdminGuestbookPage = lazy(() => import('../pages/admin/AdminGuestbookPage'))
 const AdminProjectsPage = lazy(() => import('../pages/admin/AdminProjectsPage'))
 const AdminSeriesPage = lazy(() => import('../pages/admin/AdminSeriesPage'))
 const AdminAnimePage = lazy(() => import('../pages/admin/AdminAnimePage'))
@@ -65,11 +63,12 @@ export const router = createBrowserRouter([
       { path: 'music', element: page(AdminMusicPage) },
       { path: 'projects', element: page(AdminProjectsPage) },
       { path: 'series', element: page(AdminSeriesPage) },
-      { path: 'moments', element: <Navigate to="/admin/members?tab=notes" replace /> },
+      { path: 'moments', element: <Navigate to="/admin/guestbook" replace /> },
       { path: 'settings', element: page(AdminSettingsPage) },
       { path: 'comments', element: page(AdminCommentsPage) },
       { path: 'statistics', element: page(AdminStatisticsPage) },
-      { path: 'members', element: page(AdminMembersPage) },
+      { path: 'guestbook', element: page(AdminGuestbookPage) },
+      { path: 'members', element: <Navigate to="/admin/guestbook" replace /> },
       { path: '*', element: page(NotFoundPage) },
     ],
   },
@@ -90,8 +89,6 @@ export const router = createBrowserRouter([
       { path: '/series', element: page(SeriesPage) },
       { path: '/series/:id', element: page(SeriesDetailPage) },
       { path: '/moments', element: <Navigate to="/guestbook" replace /> },
-      { path: '/account', element: page(AccountPage) },
-      { path: '/people/:id', element: page(MemberProfilePage) },
       { path: '/guestbook', element: page(GuestbookPage) },
       { path: '*', element: page(NotFoundPage) },
     ],
