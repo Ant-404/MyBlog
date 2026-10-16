@@ -12,6 +12,7 @@ import './styles/experience.css'
 import './styles/showcase.css'
 import './styles/community.css'
 import './styles/comments.css'
+import './styles/music-player.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

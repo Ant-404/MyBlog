@@ -40,6 +40,7 @@ export default function ProfileSidebar() {
           认识一下 <ArrowUpRight size={16} />
         </Link>
       </section>
+      <div id="sidebar-music-player" />
       <section className="card sidebar-card">
         <h3>
           <FolderOpen size={17} />

@@ -25,10 +25,22 @@ test('local music plays continuously between public routes and appears in admin'
   )
   await expect(page.getByLabel('QQ 音乐歌单链接或 ID')).toHaveCount(0)
   await page.goto('/')
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
+  const sidebarPlayer = page.getByRole('region', { name: '侧栏音乐播放器', exact: true })
+  await expect(sidebarPlayer).toBeVisible()
+  await sidebarPlayer.getByRole('button', { name: '播放音乐', exact: true }).click()
+  await expect
+    .poll(() =>
+      page.locator('.music-widget audio').evaluate((node: HTMLAudioElement) => node.currentTime),
+    )
+    .toBeGreaterThan(0)
+  await sidebarPlayer.getByRole('button', { name: '暂停音乐', exact: true }).click()
+  await sidebarPlayer.screenshot({ path: '../docs/screenshots/music-sidebar-card.png' })
+  await page.locator('.music-launcher').hover()
+  await expect(page.getByRole('region', { name: '音乐播放器', exact: true })).toBeVisible()
+  await expect(sidebarPlayer).toBeVisible()
   const audio = page.locator('.music-widget audio')
   expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
-  await page.getByRole('button', { name: '播放音乐', exact: true }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '播放音乐', exact: true }).click()
   await expect
     .poll(() => audio.evaluate((node: HTMLAudioElement) => node.currentTime))
     .toBeGreaterThan(0)
@@ -45,22 +57,25 @@ test('local music plays continuously between public routes and appears in admin'
   expect(await audioHandle!.evaluate((node) => node.isConnected)).toBe(true)
   expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
   await expect(page.getByRole('region', { name: '音乐播放器', exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await page.getByRole('button', { name: '下一首', exact: true }).click()
-  await expect(page.locator('.music-now-playing strong')).toHaveText('歌曲 2')
+  await page.locator('.music-widget').getByRole('button', { name: '展开音乐播放器' }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '下一首', exact: true }).click()
+  await expect(page.locator('.music-widget .music-now-playing strong')).toHaveText('歌曲 2')
+  await expect(sidebarPlayer.locator('.music-now-playing strong')).toHaveText('歌曲 2')
   await expect(page.getByRole('region', { name: '音乐播放器', exact: true })).toBeVisible()
   await expect.poll(() => audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(false)
-  await page.getByRole('button', { name: '暂停音乐', exact: true }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '暂停音乐', exact: true }).click()
   expect(await audio.evaluate((node: HTMLAudioElement) => node.paused)).toBe(true)
-  await page.getByRole('slider', { name: '音乐音量' }).press('Home')
+  await page.locator('.music-widget .music-volume').hover()
+  await page.locator('.music-widget').getByRole('slider', { name: '音乐音量' }).press('Home')
   expect(await audio.evaluate((node: HTMLAudioElement) => node.volume)).toBe(0)
-  await page.getByRole('button', { name: '显示或隐藏播放列表' }).click()
-  await expect(page.locator('.music-track-list li')).toHaveCount(3)
+  await expect(sidebarPlayer.getByRole('slider', { name: '音乐音量' })).toHaveValue('0')
+  await page.locator('.music-widget').getByRole('button', { name: '显示或隐藏播放列表' }).click()
+  await expect(page.locator('.music-widget .music-track-list li')).toHaveCount(3)
   await expect(
-    page.locator('.music-track-list li').first().locator('.music-track-cover img'),
+    page.locator('.music-widget .music-track-list li').first().locator('.music-track-cover img'),
   ).toHaveAttribute('src', '/images/landscape.svg')
   await expect(
-    page.locator('.music-track-list li').nth(1).locator('.music-track-cover svg'),
+    page.locator('.music-widget .music-track-list li').nth(1).locator('.music-track-cover svg'),
   ).toBeVisible()
   await page.screenshot({ path: '../docs/screenshots/music-player-local.png' })
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -80,9 +95,9 @@ test('unavailable local audio gives a useful error and the player fits mobile sc
   await page.route('**/music/missing.wav', (route) => route.fulfill({ status: 404, body: '' }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await page.getByRole('button', { name: '播放音乐', exact: true }).click()
-  await expect(page.locator('.music-error')).toBeVisible()
+  await page.locator('.music-widget').getByRole('button', { name: '展开音乐播放器' }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '播放音乐', exact: true }).click()
+  await expect(page.locator('.music-widget .music-error')).toBeVisible()
   await expect(page.getByRole('link', { name: 'QQ 音乐', exact: true })).toHaveCount(0)
   for (const width of [320, 390, 640, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 })
@@ -93,9 +108,11 @@ test('unavailable local audio gives a useful error and the player fits mobile sc
 test('an empty local music directory shows a clear empty state', async ({ page }) => {
   await localMusic(page, [])
   await page.goto('/')
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await expect(page.locator('.music-empty')).toContainText('暂时还没有本地音乐')
-  await expect(page.getByRole('button', { name: '播放音乐', exact: true })).toHaveCount(0)
+  await page.locator('.music-widget').getByRole('button', { name: '展开音乐播放器' }).click()
+  await expect(page.locator('.music-widget .music-empty')).toContainText('暂时还没有本地音乐')
+  await expect(
+    page.locator('.music-widget').getByRole('button', { name: '播放音乐', exact: true }),
+  ).toHaveCount(0)
 })
 
 test('continuous hue persists and the night background has no dot texture', async ({ page }) => {

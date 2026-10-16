@@ -188,17 +188,23 @@ test('music remembers playback mode and last track without autoplaying after rel
 }) => {
   await localMusic(page)
   await page.goto('/')
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await page.getByRole('button', { name: '播放模式：列表循环' }).click()
-  await expect(page.getByRole('button', { name: '播放模式：单曲循环' })).toBeVisible()
-  await page.getByRole('button', { name: '下一首', exact: true }).click()
-  await expect(page.locator('.music-now-playing')).toContainText('歌曲 2')
+  await page.locator('.music-widget').getByRole('button', { name: '展开音乐播放器' }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '播放模式：列表循环' }).click()
+  await expect(
+    page.locator('.music-widget').getByRole('button', { name: '播放模式：单曲循环' }),
+  ).toBeVisible()
+  await page.locator('.music-widget').getByRole('button', { name: '下一首', exact: true }).click()
+  await expect(page.locator('.music-widget .music-now-playing')).toContainText('歌曲 2')
   await page.reload()
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await expect(page.locator('.music-now-playing')).toContainText('歌曲 2')
-  await expect(page.getByRole('button', { name: '播放模式：单曲循环' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '播放音乐', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: '播放模式：单曲循环' }).click()
-  await page.getByRole('button', { name: '下一首', exact: true }).click()
-  await expect(page.locator('.music-now-playing')).not.toContainText('歌曲 2')
+  await page.locator('.music-widget').getByRole('button', { name: '展开音乐播放器' }).click()
+  await expect(page.locator('.music-widget .music-now-playing')).toContainText('歌曲 2')
+  await expect(
+    page.locator('.music-widget').getByRole('button', { name: '播放模式：单曲循环' }),
+  ).toBeVisible()
+  await expect(
+    page.locator('.music-widget').getByRole('button', { name: '播放音乐', exact: true }),
+  ).toBeVisible()
+  await page.locator('.music-widget').getByRole('button', { name: '播放模式：单曲循环' }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '下一首', exact: true }).click()
+  await expect(page.locator('.music-widget .music-now-playing')).not.toContainText('歌曲 2')
 })

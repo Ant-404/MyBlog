@@ -54,9 +54,9 @@ test('admin uploads audio, edits metadata and replaces its cover persistently', 
   await expect(row).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.goto('/')
-  await page.getByRole('button', { name: '展开音乐播放器' }).click()
-  await page.getByRole('button', { name: '显示或隐藏播放列表' }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '展开音乐播放器' }).click()
+  await page.locator('.music-widget').getByRole('button', { name: '显示或隐藏播放列表' }).click()
   await expect(
-    page.locator('.music-track-list').getByText(`${title}已编辑`, { exact: true }),
+    page.locator('.music-widget .music-track-list').getByText(`${title}已编辑`, { exact: true }),
   ).toBeVisible()
 })

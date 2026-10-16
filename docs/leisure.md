@@ -12,7 +12,11 @@
 4. 已有 `frontend/public/music/` 中的歌曲继续兼容，资料编辑不会改动原音频。支持同名图片或 `cover` 默认封面。生产部署通过 `MUSIC_SOURCE_DIRECTORY` 指定原有歌曲目录。
 5. 新上传的音频、封面和 `library.json` 保存在后端音乐目录，默认 `${UPLOAD_DIRECTORY}/music`，可配置 `MUSIC_DIRECTORY`。必须一起备份；后台上传不需要重新构建前端。
 
-播放器位于前台左下角，支持播放/暂停、上一首/下一首、进度拖动、音量与静音、列表循环、单曲循环、随机播放和播放列表。同一前台布局内切换页面继续播放。首次播放需访客点击，刷新后不会自动播放。空目录显示等待分享的提示。
+播放器默认位于前台右下角，支持播放/暂停、上一首/下一首、进度拖动、音量与静音、列表循环、单曲循环、随机播放和播放列表。同一前台布局内切换页面继续播放。首次播放需访客点击，刷新后不会自动播放。空目录显示等待分享的提示。
+
+播放器外观参考 https://blog.fqzlr.top/anime/：桌面左侧资料卡下方提供常驻音乐卡片，右下角默认显示圆形唱片；鼠标悬停或触屏点击唱片后展开横向面板，歌单向上展开，音量滑块在悬停或聚焦音量控件时显示。侧栏与悬浮控件共用一个 audio 元素，歌曲、进度、音量和播放状态同步。窄屏隐藏侧栏，仍可通过唱片操作；Esc 或点击外部可收起面板。播放时封面旋转，减少动态效果设置下停止动画。音乐库未提供歌词字段，本次不添加歌词按钮。
+
+参考 Shirone 的侧栏组件与共享播放状态结构（https://github.com/LyraVoid/Shirone ，查阅提交 `557ccf1`），补充当前项目的悬浮交互：唱片支持鼠标和触屏拖动，超过 6px 才进入拖动，拖动不会误展开或暂停音乐；松手后记住位置，窗口缩小时限制在视窗内，Alt + 方向键也可移动。侧栏标题右侧的唱片按钮控制显示或隐藏，并记住偏好。隐藏仅影响悬浮控件，侧栏仍可播放。鼠标移开后约 80ms 收起，操作按钮后的焦点不会阻止收起。面板和歌单按位置向内、向上或向下展开，窄屏中间位置时面板避开唱片。
 
 前台请求 `/api/v1/music/local`，不再请求 QQ/Meting。后端尚未更新而返回 404 时，前台临时使用构建时目录列表；后台上传编辑必须使用新后端。旧数据库歌单和接口保留兼容，不会被本地音乐覆盖。仅支持单后端实例管理音乐资料。
 
@@ -40,7 +44,7 @@
 | 音乐后台页面 | `frontend/src/pages/admin/AdminMusicPage.tsx` |
 | 本地歌曲扫描与目录 | `frontend/build/localMusic.ts`、`frontend/public/music/` |
 | 持续播放组件 | `frontend/src/components/layout/MusicPlayer.tsx`，由 `BlogLayout` 挂载 |
-| 新增样式 | `frontend/src/styles/leisure.css` |
+| 新增样式 | `frontend/src/styles/leisure.css`、`frontend/src/styles/music-player.css` |
 | 色相条/亮度计算 | `AppearanceSettings.tsx`、`frontend/src/utils/theme.ts` |
 | 后端 | `backend/src/main/java/com/myblog/anime`、`backend/src/main/java/com/myblog/music` |
 | 唯一数据库脚本 | `database/MyBlog.sql`（顶部附更新备注，手动执行） |
