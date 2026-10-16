@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  Flower2,
   Sun,
   Moon,
   Menu,
@@ -50,7 +49,7 @@ export default function SiteHeader() {
     <header className="site-header">
       <div className="header-inner">
         <Link to="/" className="brand">
-          <Flower2 size={26} />
+          <img className="site-logo" src="/images/log.jpg" width={28} height={28} alt="" />
           <span>
             {site.name}
             <small>个人博客</small>

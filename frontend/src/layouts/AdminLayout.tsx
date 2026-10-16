@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Flower2,
   LayoutDashboard,
   LogOut,
   ArrowUpRight,
@@ -69,7 +68,7 @@ export default function AdminLayout() {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <Link className="brand" to="/admin">
-          <Flower2 size={27} />
+          <img className="site-logo" src="/images/log.jpg" width={28} height={28} alt="" />
           <span>{site.name}</span>
         </Link>
         <span className="admin-sidebar-caption">内容管理</span>

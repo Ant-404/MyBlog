@@ -129,6 +129,15 @@ img {
   align-items: center;
   gap: 60px;
 }
+.site-logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.site-footer > .site-logo {
+  margin: 0 auto 10px;
+}
 .brand {
   display: flex;
   align-items: center;

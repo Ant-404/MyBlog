@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Flower2, Coffee } from 'lucide-react'
+import { Coffee } from 'lucide-react'
 import HeroBanner from '../components/layout/HeroBanner'
 import SiteHeader from '../components/layout/SiteHeader'
 import ProfileSidebar from '../components/layout/ProfileSidebar'
@@ -37,7 +37,7 @@ export default function BlogLayout() {
         )}
       </div>
       <footer className="site-footer">
-        <Flower2 size={20} />
+        <img className="site-logo" src="/images/log.jpg" width={28} height={28} alt="" />
         <p>
           © {new Date().getFullYear()} {site.author} · 记录学习，也记录生活。
         </p>

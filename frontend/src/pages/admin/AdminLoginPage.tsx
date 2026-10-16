@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Flower2, LockKeyhole, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, LockKeyhole, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../../api/auth'
 import { HttpError } from '../../api/http'
 import { site } from '../../config/site'
@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
       <div className="login-scenery" />
       <section className="card admin-login-card">
         <div className="login-symbol">
-          <Flower2 size={32} />
+          <img className="site-logo" src="/images/log.jpg" width={40} height={40} alt="" />
         </div>
         <span className="eyebrow">A SPACE TO CREATE</span>
         <h1>{site.author}的管理后台</h1>
