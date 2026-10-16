@@ -1,11 +1,23 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Clapperboard, ExternalLink, Search, Star, Tv } from 'lucide-react'
+import { Check, Clapperboard, ExternalLink, Search, Star, Tv } from 'lucide-react'
 import { animeApi } from '../api/anime'
 import { animeStatuses, type AnimeStatus } from '../types/anime'
 import { useAsyncData } from '../hooks/useAsyncData'
 import { usePageTitle } from '../hooks/usePageTitle'
 import DataState from '../components/common/DataState'
+
+function AnimePoster({ src, title }: { src: string; title: string }) {
+  const [failed, setFailed] = useState('')
+  return src && src !== failed ? (
+    <img src={src} alt={`${title}封面`} loading="lazy" onError={() => setFailed(src)} />
+  ) : (
+    <div className="anime-cover-placeholder">
+      <Tv size={30} />
+      <span>{title}</span>
+    </div>
+  )
+}
 
 export default function AnimePage() {
   usePageTitle('追番记录')
@@ -33,8 +45,8 @@ export default function AnimePage() {
   }, [data, status, keyword, order])
   const watched = (data || []).reduce((sum, entry) => sum + entry.watchedEpisodes, 0)
   return (
-    <section className="anime-page">
-      <header className="card anime-intro">
+    <section className="card anime-page">
+      <header className="anime-intro">
         <div className="anime-intro-icon">
           <Clapperboard size={26} />
         </div>
@@ -112,17 +124,11 @@ export default function AnimePage() {
         ) : (
           <div className="anime-grid">
             {entries.map((entry) => (
-              <article className="card anime-card" key={entry.id}>
+              <article className="anime-card" key={entry.id}>
                 <div className="anime-cover">
-                  {entry.cover ? (
-                    <img src={entry.cover} alt={`${entry.title}封面`} loading="lazy" />
-                  ) : (
-                    <div className="anime-cover-placeholder">
-                      <Tv size={36} />
-                      <span>{entry.title}</span>
-                    </div>
-                  )}
+                  <AnimePoster src={entry.cover} title={entry.title} />
                   <span className={`anime-status anime-status-${entry.status.toLowerCase()}`}>
+                    {entry.status === 'COMPLETED' && <Check size={12} />}
                     {animeStatuses[entry.status]}
                   </span>
                   {entry.score > 0 && (
@@ -134,50 +140,64 @@ export default function AnimePage() {
                 </div>
                 <div className="anime-body">
                   <h2>{entry.title}</h2>
-                  <div className="anime-progress-label">
-                    <span>
-                      已看 {entry.watchedEpisodes} / {entry.totalEpisodes || '?'} 集
-                    </span>
-                    {entry.totalEpisodes > 0 && (
-                      <small>
-                        {Math.round((entry.watchedEpisodes / entry.totalEpisodes) * 100)}%
-                      </small>
+                  <div className="anime-review">
+                    <p
+                      id={`anime-note-${entry.id}`}
+                      className={`anime-note ${expanded.includes(entry.id) ? 'is-expanded' : ''}`}
+                    >
+                      {entry.note || '还没有留下观后感。'}
+                    </p>
+                    {entry.note && entry.note.length > 60 && (
+                      <button
+                        type="button"
+                        className="text-button anime-note-toggle"
+                        aria-controls={`anime-note-${entry.id}`}
+                        aria-expanded={expanded.includes(entry.id)}
+                        onClick={() =>
+                          setExpanded((old) =>
+                            old.includes(entry.id)
+                              ? old.filter((id) => id !== entry.id)
+                              : [...old, entry.id],
+                          )
+                        }
+                      >
+                        {expanded.includes(entry.id) ? '收起观后感' : '展开观后感'}
+                      </button>
                     )}
                   </div>
-                  <progress
-                    aria-label={`${entry.title}观看进度`}
-                    value={entry.watchedEpisodes}
-                    max={entry.totalEpisodes || Math.max(1, entry.watchedEpisodes)}
-                  />
-                  <p className={`anime-note ${expanded.includes(entry.id) ? 'is-expanded' : ''}`}>
-                    {entry.note || '还没有留下观后感。'}
-                  </p>
-                  {entry.note && entry.note.length > 60 && (
-                    <button
-                      type="button"
-                      className="text-button anime-note-toggle"
-                      aria-expanded={expanded.includes(entry.id)}
-                      onClick={() =>
-                        setExpanded((old) =>
-                          old.includes(entry.id)
-                            ? old.filter((id) => id !== entry.id)
-                            : [...old, entry.id],
-                        )
-                      }
-                    >
-                      {expanded.includes(entry.id) ? '收起观后感' : '展开观后感'}
-                    </button>
-                  )}
-                  {entry.sourceUrl && (
-                    <a
-                      className="anime-source"
-                      href={entry.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      作品页面 <ExternalLink size={13} />
-                    </a>
-                  )}
+                  <div className="anime-details">
+                    <dl className="anime-facts">
+                      <div>
+                        <dt>集数</dt>
+                        <dd>{entry.totalEpisodes ? `${entry.totalEpisodes} 集` : '未定'}</dd>
+                      </div>
+                    </dl>
+                    <div className="anime-progress-label">
+                      <span>
+                        已看 {entry.watchedEpisodes} / {entry.totalEpisodes || '?'} 集
+                      </span>
+                      {entry.totalEpisodes > 0 && (
+                        <small>
+                          {Math.round((entry.watchedEpisodes / entry.totalEpisodes) * 100)}%
+                        </small>
+                      )}
+                    </div>
+                    <progress
+                      aria-label={`${entry.title}观看进度`}
+                      value={entry.watchedEpisodes}
+                      max={entry.totalEpisodes || Math.max(1, entry.watchedEpisodes)}
+                    />
+                    {entry.sourceUrl && (
+                      <a
+                        className="anime-source"
+                        href={entry.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        作品页面 <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}

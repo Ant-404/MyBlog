@@ -13,6 +13,7 @@ import './styles/showcase.css'
 import './styles/community.css'
 import './styles/comments.css'
 import './styles/music-player.css'
+import './styles/anime.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

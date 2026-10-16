@@ -23,6 +23,7 @@
 ## 追番记录
 
 - 前台 `/anime`，导航入口「追番」。支持按名称搜索、按状态筛选、按评分排序，显示总作品数、在看数及已看集数。
+- 作品采用左侧竖版封面、右侧信息的横向卡片，桌面双列、窄屏单列。封面显示状态与评分，信息区显示观后感、集数、观看进度和作品链接；长观后感可展开，封面缺失或加载失败时显示占位内容。外观随站点主题色及日夜模式切换。
 - 后台 `/admin/anime`，入口「追番管理」。支持新增、编辑、删除、显隐、排序、封面、作品链接和观后感。
 - 状态：在看、想看、看完、搁置、弃番。已看集数不能超过已知总集数；未知总集数填 `0`。标记看完时需要填写总集数，前端选择看完会自动把已看集数设为总集数。
 - 评分 `0` 表示未评，允许 `0–10`；前端按 `0.5` 调整。封面可使用后台图片库，正在引用的图片禁止删除。
@@ -44,7 +45,7 @@
 | 音乐后台页面 | `frontend/src/pages/admin/AdminMusicPage.tsx` |
 | 本地歌曲扫描与目录 | `frontend/build/localMusic.ts`、`frontend/public/music/` |
 | 持续播放组件 | `frontend/src/components/layout/MusicPlayer.tsx`，由 `BlogLayout` 挂载 |
-| 新增样式 | `frontend/src/styles/leisure.css`、`frontend/src/styles/music-player.css` |
+| 新增样式 | `frontend/src/styles/leisure.css`、`frontend/src/styles/music-player.css`、`frontend/src/styles/anime.css` |
 | 色相条/亮度计算 | `AppearanceSettings.tsx`、`frontend/src/utils/theme.ts` |
 | 后端 | `backend/src/main/java/com/myblog/anime`、`backend/src/main/java/com/myblog/music` |
 | 唯一数据库脚本 | `database/MyBlog.sql`（顶部附更新备注，手动执行） |
