@@ -79,4 +79,61 @@ class MediaIntegrationTest {
     mvc.perform(get("/api/v1/admin/media").with(anonymous())).andExpect(status().isUnauthorized());
     mvc.perform(get("/api/v1/media/not-an-image.png")).andExpect(status().isNotFound());
   }
+
+  @Test
+  void visitorsUploadPhotosAndReferencedPhotosCannotBeDeleted() throws Exception {
+    var bytes = new ByteArrayOutputStream();
+    ImageIO.write(new BufferedImage(4, 4, BufferedImage.TYPE_INT_RGB), "png", bytes);
+    var file = new MockMultipartFile("file", "photo.png", "image/png", bytes.toByteArray());
+    mvc.perform(multipart("/api/v1/comments/images").file(file).with(anonymous()))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            multipart("/api/v1/comments/images")
+                .file(
+                    new MockMultipartFile(
+                        "file", "fake.png", "image/png", "not an image".getBytes()))
+                .with(anonymous())
+                .with(csrf()))
+        .andExpect(status().isBadRequest());
+    var result =
+        mvc.perform(multipart("/api/v1/comments/images").file(file).with(anonymous()).with(csrf()))
+            .andExpect(status().isCreated())
+            .andReturn();
+    var image = mapper.readTree(result.getResponse().getContentAsString()).path("data");
+    String url = image.path("url").asText();
+    long id = image.path("id").asLong();
+    mvc.perform(get(url).with(anonymous())).andExpect(status().isOk());
+    long postId = jdbc.queryForObject("SELECT MIN(id) FROM posts", Long.class);
+    String comment = "![photo](" + url + ")";
+    jdbc.update(
+        "INSERT INTO comments(post_id,author,content,status) VALUES (?,?,?,'APPROVED')",
+        postId,
+        "photo-test",
+        comment);
+    try {
+      mvc.perform(delete("/api/v1/admin/media/" + id).with(csrf()))
+          .andExpect(status().isConflict());
+    } finally {
+      jdbc.update("DELETE FROM comments WHERE content=?", comment);
+      mvc.perform(delete("/api/v1/admin/media/" + id).with(csrf())).andExpect(status().isOk());
+    }
+  }
+
+  @Test
+  void visitorPhotoUploadsAreRateLimited() throws Exception {
+    String address = "photo-limit-" + java.util.UUID.randomUUID();
+    for (int i = 0; i < 11; i++) {
+      mvc.perform(
+              multipart("/api/v1/comments/images")
+                  .file(new MockMultipartFile("file", "bad.png", "image/png", "bad".getBytes()))
+                  .with(anonymous())
+                  .with(csrf())
+                  .with(
+                      request -> {
+                        request.setRemoteAddr(address);
+                        return request;
+                      }))
+          .andExpect(i < 10 ? status().isBadRequest() : status().isTooManyRequests());
+    }
+  }
 }

@@ -1,6 +1,40 @@
 const maxBytes = 5 * 1024 * 1024
 const maxPixels = 20_000_000
 
+/** Resize visitor photos before uploading; the server still validates and re-encodes them. */
+export async function prepareCommentImage(file: File): Promise<File> {
+  if (!file.size) throw new Error('图片文件为空')
+  if (file.size > 20 * 1024 * 1024) throw new Error('请选择 20MB 以内的照片')
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    throw new Error('无法读取照片，请选择 JPG、PNG 或 WebP 图片')
+  }
+  try {
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('浏览器无法处理图片，请换用最新版浏览器')
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (value) => (value ? resolve(value) : reject(new Error('图片处理失败，请重试'))),
+        'image/jpeg',
+        0.85,
+      )
+    })
+    if (blob.size > maxBytes) throw new Error('图片处理后仍超过 5MB，请缩小后重试')
+    return new File([blob], 'comment-photo.jpg', { type: 'image/jpeg' })
+  } finally {
+    bitmap.close()
+  }
+}
+
 /** Detect bytes rather than trusting extensions: some downloaded .jpg files are WebP. */
 export async function prepareImageUpload(file: File, onConvert: () => void): Promise<File> {
   if (file.size === 0) throw new Error('图片文件为空')

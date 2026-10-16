@@ -71,6 +71,11 @@ public class MediaRepository {
                 literal)
             > 0
         || jdbc.queryForObject(
+                "SELECT COUNT(*) FROM comments WHERE content LIKE ? ESCAPE '!'",
+                Long.class,
+                literal)
+            > 0
+        || jdbc.queryForObject(
                 "SELECT COUNT(*) FROM site_settings WHERE avatar=? OR about_content LIKE ? ESCAPE"
                     + " '!'",
                 Long.class,

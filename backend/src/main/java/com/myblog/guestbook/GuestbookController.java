@@ -39,6 +39,12 @@ public class GuestbookController {
     return ApiResponse.success(null);
   }
 
+  @GetMapping("/guestbook/highlights")
+  public ApiResponse<java.util.List<Note>> highlights(
+      @RequestParam(defaultValue = "latest") @Pattern(regexp = "latest|random") String mode) {
+    return ApiResponse.success(repository.highlights(mode.equals("random")));
+  }
+
   @GetMapping("/admin/guestbook")
   public ApiResponse<PageResponse<Note>> admin(
       @RequestParam(defaultValue = "1") @Min(1) @Max(100000) int page) {

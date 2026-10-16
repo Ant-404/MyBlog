@@ -69,6 +69,7 @@ public class SecurityConfig {
                     .requestMatchers(
                         HttpMethod.POST,
                         "/api/v1/posts/*/comments",
+                        "/api/v1/comments/images",
                         "/api/v1/posts/*/view",
                         "/api/v1/guestbook")
                     .permitAll()

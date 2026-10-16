@@ -62,6 +62,7 @@ test('guestbook publishes visitor notes immediately and admin manages all notes'
     })
     await page.getByRole('button', { name: '贴上便签', exact: true }).click()
     await expect(page.getByRole('status')).toContainText('便签已发布')
+    await expect(page.locator('.sticky-note-grid')).toContainText(content)
     await expect(page.getByLabel('写张便签')).toHaveValue('')
     await expect(page.getByLabel('写张便签')).toBeHidden()
     await expect(page.getByRole('button', { name: '写留言', exact: true })).toBeFocused()

@@ -6,10 +6,12 @@ import { usePageTitle } from '../hooks/usePageTitle'
 import { demoMode, HttpError } from '../api/http'
 import DataState from '../components/common/DataState'
 import ContentPagination from '../components/common/ContentPagination'
+import GuestbookHighlights from '../components/blog/GuestbookHighlights'
 
 export default function GuestbookPage() {
   usePageTitle('留言墙')
   const [page, setPage] = useState(1)
+  const [wallRevision, setWallRevision] = useState(0)
   const data = useAsyncData(
     useCallback(
       () =>
@@ -60,6 +62,16 @@ export default function GuestbookPage() {
   }
   return (
     <section className="card content-page guestbook-page" aria-label="留言广场">
+      <GuestbookHighlights
+        revision={wallRevision}
+        onCompose={() => {
+          setEditorOpen(true)
+          requestAnimationFrame(() => {
+            editorInput.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            editorInput.current?.focus({ preventScroll: true })
+          })
+        }}
+      />
       {!demoMode ? (
         <div className="guestbook-composer">
           <button
@@ -95,6 +107,7 @@ export default function GuestbookPage() {
                     setEditorOpen(false)
                     restoreEditorFocus.current = true
                     setMessage('便签已发布，已贴到留言墙。')
+                    setWallRevision((value) => value + 1)
                     if (page === 1) data.refresh()
                     else setPage(1)
                   })
@@ -191,9 +204,9 @@ export default function GuestbookPage() {
         </p>
       )}
       <header className="guestbook-feed-heading">
-        <h1>
-          留言墙 <span>{data.data?.total ?? '…'}</span>
-        </h1>
+        <h2>
+          全部留言 <span>{data.data?.total ?? '…'}</span>
+        </h2>
         <button
           className="guestbook-pill"
           type="button"

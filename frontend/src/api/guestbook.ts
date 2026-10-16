@@ -9,6 +9,7 @@ export interface Note {
   createdAt: string
 }
 export const guestbookApi = {
+  highlights: (mode: 'latest' | 'random') => request<Note[]>(`/guestbook/highlights?mode=${mode}`),
   notes: (page: number, admin = false) =>
     request<PageResult<Note>>(`/${admin ? 'admin/' : ''}guestbook?page=${page}`),
   addNote: (content: string, color: string, website = '') =>

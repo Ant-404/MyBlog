@@ -228,6 +228,21 @@
   flex: 1;
   min-width: 140px;
 }
+.comment-image-picker .comment-photo-upload {
+  flex: 1 0 100%;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border);
+}
+.comment-photo-upload input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+}
+.comment-photo-upload small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
 .comment-reply-banner {
   display: flex;
   align-items: center;

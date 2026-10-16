@@ -126,9 +126,12 @@ test('preview sanitizes markup, errors preserve drafts, and fields restore after
   await expect(page.getByLabel('昵称', { exact: true })).toHaveValue('草稿用户')
   await expect(page.getByLabel('邮箱', { exact: true })).toHaveValue('draft@example.com')
   await expect(page.getByLabel('评论内容')).toHaveValue('发送失败也要保留这段文字')
-  await page.getByRole('button', { name: '插入图片链接' }).click()
-  await page.getByLabel('图片链接', { exact: true }).fill('https://example.com/photo.jpg')
   await page.getByRole('button', { name: '插入图片', exact: true }).click()
+  await page.getByLabel('或填写图片链接', { exact: true }).fill('https://example.com/photo.jpg')
+  await page
+    .locator('.comment-image-picker')
+    .getByRole('button', { name: '插入图片', exact: true })
+    .click()
   await expect(page.getByLabel('评论内容')).toHaveValue(
     /!\[图片\]\(https:\/\/example.com\/photo.jpg\)/,
   )

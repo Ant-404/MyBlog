@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ImagePlus, MessageSquare, RefreshCw, Smile, UserRound, X } from 'lucide-react'
 import { communityApi } from '../../api/community'
+import { mediaApi } from '../../api/media'
 import { demoMode } from '../../api/http'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { useSite } from '../../contexts/SiteContext'
@@ -94,6 +95,7 @@ function CommentSection({ slug }: { slug: string }) {
   const fetchComments = useCallback(() => communityApi.comments(slug, page), [slug, page])
   const { data, loading, error, refresh } = useAsyncData(fetchComments)
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
   const [draftStatus, setDraftStatus] = useState('')
@@ -269,8 +271,8 @@ function CommentSection({ slug }: { slug: string }) {
                 <button
                   className="comment-tool"
                   type="button"
-                  title="插入图片链接"
-                  aria-label="插入图片链接"
+                  title="插入图片"
+                  aria-label="插入图片"
                   aria-expanded={tools === 'image'}
                   aria-controls="comment-image-picker"
                   disabled={busy}
@@ -302,7 +304,7 @@ function CommentSection({ slug }: { slug: string }) {
                   className="button"
                   disabled={busy || !author.trim() || !email.trim() || !content.trim()}
                 >
-                  {busy ? '发送中…' : '发送'}
+                  {uploading ? '图片上传中…' : busy ? '发送中…' : '发送'}
                 </button>
               </div>
             </div>
@@ -336,8 +338,45 @@ function CommentSection({ slug }: { slug: string }) {
             )}
             {tools === 'image' && (
               <div className="comment-image-picker" id="comment-image-picker">
+                <label className="comment-photo-upload">
+                  {uploading ? '正在处理并上传照片…' : '从本地选择照片'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                    disabled={busy}
+                    onChange={async (event) => {
+                      const file = event.currentTarget.files?.[0]
+                      event.currentTarget.value = ''
+                      if (!file || busy) return
+                      if (content.length + 80 > limit) {
+                        setFailed(true)
+                        setMessage('请预留至少 80 字用于插入图片，已写文字会保留。')
+                        return
+                      }
+                      setBusy(true)
+                      setUploading(true)
+                      setMessage('')
+                      setFailed(false)
+                      try {
+                        const image = await mediaApi.uploadCommentImage(file)
+                        insert(`![照片](${image.url})`)
+                        setPreview(true)
+                        setMessage('照片已插入，发送评论后会公开显示。')
+                      } catch (cause) {
+                        setFailed(true)
+                        setMessage(
+                          cause instanceof Error ? cause.message : '照片上传失败，请重试。',
+                        )
+                      } finally {
+                        setBusy(false)
+                        setUploading(false)
+                      }
+                    }}
+                  />
+                  <small>支持 JPG、PNG、WebP 等图片，最大 20MB，自动缩小并压缩。</small>
+                </label>
                 <label>
-                  图片链接
+                  或填写图片链接
                   <input
                     type="url"
                     placeholder="https://…"

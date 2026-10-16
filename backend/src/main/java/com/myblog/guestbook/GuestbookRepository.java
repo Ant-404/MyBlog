@@ -40,6 +40,19 @@ public class GuestbookRepository {
         color);
   }
 
+  public java.util.List<Note> highlights(boolean random) {
+    return jdbc.query(
+        "SELECT * FROM guestbook_entries ORDER BY " + (random ? "RAND()" : "id DESC") + " LIMIT 9",
+        (r, n) ->
+            new Note(
+                r.getLong("id"),
+                "匿名用户",
+                r.getString("content"),
+                r.getString("color"),
+                r.getInt("version"),
+                r.getString("created_at")));
+  }
+
   public void delete(long id, int version) {
     if (jdbc.update("DELETE FROM guestbook_entries WHERE id=? AND version=?", id, version) != 1)
       throw new ConflictException("便签已更新或不存在，请刷新");

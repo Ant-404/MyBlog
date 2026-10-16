@@ -1,8 +1,20 @@
 import { request, mutate } from './http'
 import type { MediaFile } from '../types/media'
-import { prepareImageUpload } from '../utils/imageUpload'
+import { prepareImageUpload, prepareCommentImage } from '../utils/imageUpload'
 
 export const mediaApi = {
+  async uploadCommentImage(file: File): Promise<MediaFile> {
+    const prepared = await prepareCommentImage(file)
+    const csrf = await request<{ token: string; headerName: string }>('/auth/csrf')
+    const body = new FormData()
+    body.append('file', prepared)
+    return request<MediaFile>('/comments/images', {
+      method: 'POST',
+      headers: { [csrf.headerName]: csrf.token },
+      body,
+      signal: AbortSignal.timeout(60000),
+    })
+  },
   list: () => request<MediaFile[]>('/admin/media'),
   remove: (id: number) => mutate<void>(`/admin/media/${id}`, 'DELETE'),
   async upload(

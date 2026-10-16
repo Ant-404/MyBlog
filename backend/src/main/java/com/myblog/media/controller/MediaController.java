@@ -13,9 +13,21 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 public class MediaController {
   private final MediaService service;
+  private final com.myblog.guestbook.GuestbookRateLimiter uploadLimiter;
 
-  public MediaController(MediaService service) {
+  public MediaController(
+      MediaService service, com.myblog.guestbook.GuestbookRateLimiter uploadLimiter) {
     this.service = service;
+    this.uploadLimiter = uploadLimiter;
+  }
+
+  @PostMapping("/api/v1/comments/images")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ApiResponse<MediaResponse> commentImage(
+      @RequestParam("file") MultipartFile file, jakarta.servlet.http.HttpServletRequest request)
+      throws IOException {
+    uploadLimiter.check("comment-image:" + request.getRemoteAddr(), 10);
+    return ApiResponse.success(service.upload(file));
   }
 
   @GetMapping("/api/v1/admin/media")

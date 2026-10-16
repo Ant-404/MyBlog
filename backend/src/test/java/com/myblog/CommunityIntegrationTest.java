@@ -350,6 +350,38 @@ class CommunityIntegrationTest {
   }
 
   @Test
+  void highlightsReturnNineLatestOrDistinctRandomNotesFromEntireWall() throws Exception {
+    for (int i = 0; i < 35; i++) {
+      jdbc.update(
+          "INSERT INTO guestbook_entries(content,color,status) VALUES (?, 'sky', 'APPROVED')",
+          "highlight-" + i);
+    }
+    long newest = jdbc.queryForObject("SELECT MAX(id) FROM guestbook_entries", Long.class);
+    mvc.perform(get("/api/v1/guestbook/highlights").with(anonymous()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.length()").value(9))
+        .andExpect(jsonPath("$.data[0].id").value(newest))
+        .andExpect(jsonPath("$.data[8].id").value(newest - 8));
+    var seen = new java.util.HashSet<Long>();
+    for (int i = 0; i < 10; i++) {
+      var result =
+          mvc.perform(get("/api/v1/guestbook/highlights?mode=random").with(anonymous()))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.data.length()").value(9))
+              .andReturn();
+      var ids = new java.util.HashSet<Long>();
+      for (var item : mapper.readTree(result.getResponse().getContentAsString()).path("data")) {
+        ids.add(item.path("id").asLong());
+      }
+      assertEquals(9, ids.size());
+      seen.addAll(ids);
+    }
+    assertTrue(seen.stream().anyMatch(id -> id <= newest - 20));
+    mvc.perform(get("/api/v1/guestbook/highlights?mode=invalid").with(anonymous()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void feedsAreValidXmlAndContainOnlyPublicPages() throws Exception {
     String published = fixture("PUBLISHED", LocalDate.now().minusDays(1)),
         draft = fixture("DRAFT", LocalDate.now()),

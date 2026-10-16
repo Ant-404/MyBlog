@@ -14,6 +14,7 @@ import './styles/community.css'
 import './styles/comments.css'
 import './styles/music-player.css'
 import './styles/anime.css'
+import './styles/guestbook-wall.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
