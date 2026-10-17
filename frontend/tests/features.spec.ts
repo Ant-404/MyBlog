@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test'
 import { login, adminMutation, createPost, deletePost } from './helpers/admin'
-import { loginMember } from './helpers/member'
 
 test('upload select cover/body and protect referenced images', async ({ page }) => {
   await login(page)
@@ -151,7 +150,7 @@ test('site settings update frontend and sanitize the about page', async ({ page 
   }
 })
 
-test('reading tools comments moderation feeds and statistics work together', async ({ page }) => {
+test('reading tools instant comments feeds and statistics work together', async ({ page }) => {
   await login(page)
   const post = await createPost(page)
   try {
@@ -166,23 +165,26 @@ test('reading tools comments moderation feeds and statistics work together', asy
       .getByRole('link', { name: '第二节' })
       .click()
     await expect(page).toHaveURL(/#article-heading-2$/)
-    await loginMember(page)
-    await page.reload()
-    await page.getByLabel('评论内容').fill('<script>window.badComment=true</script>文字评论')
-    await page.getByRole('button', { name: '提交评论', exact: true }).click()
-    await expect(page.getByRole('status')).toContainText('评论已发布')
+    await page.getByLabel('昵称', { exact: true }).fill('FeatureComment')
+    await page.getByLabel('邮箱', { exact: true }).fill('feature@example.com')
+    await page.getByLabel('评论内容').fill('<script>window.badComment=true</script>验证评论文字')
+    await page.getByRole('button', { name: '发送', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: '评论已发布' })).toBeVisible()
+    await expect(page.locator('.comment-item')).toContainText('验证评论文字')
+    expect(await page.evaluate(() => 'badComment' in window)).toBe(false)
     expect(
       (await (await page.request.get(`/api/v1/posts/${post.slug}/comments`)).json()).data.total,
     ).toBe(1)
-    await login(page)
     await page.goto('/admin/comments')
     const row = page.locator('.comment-list article').filter({ hasText: 'FeatureComment' })
     await expect(row).toBeVisible()
-    await row.getByRole('button', { name: '通过', exact: true }).click()
+    page.once('dialog', (dialog) => dialog.accept())
+    await row.getByRole('button', { name: '删除评论', exact: true }).click()
     await expect(row).toHaveCount(0)
+    expect(
+      (await (await page.request.get(`/api/v1/posts/${post.slug}/comments`)).json()).data.total,
+    ).toBe(0)
     await page.goto(`/posts/${post.slug}`)
-    await expect(page.locator('.comment-list')).toContainText('window.badComment=true')
-    expect(await page.evaluate(() => 'badComment' in window)).toBe(false)
     await page.locator('.post-comments').scrollIntoViewIfNeeded()
     await expect
       .poll(async () =>

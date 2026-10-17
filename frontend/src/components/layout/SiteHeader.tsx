@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
+  Camera,
   Sun,
   Moon,
   Menu,
@@ -22,6 +23,7 @@ const navIcons: Record<string, typeof Home> = {
   '/': Home,
   '/categories': FolderOpen,
   '/anime': Tv,
+  '/albums': Camera,
   '/friends': Link2,
   '/about': UserRound,
   '/projects': BriefcaseBusiness,

@@ -27,6 +27,10 @@ public class MediaService {
     return repository.list();
   }
 
+  public com.myblog.common.api.PageResponse<MediaResponse> page(int page, String keyword) {
+    return repository.page(page, keyword);
+  }
+
   public MediaResponse upload(MultipartFile file) throws IOException {
     if (file.isEmpty() || file.getSize() > 5 * 1024 * 1024)
       throw new InvalidInputException("图片必须在 5MB 以内");

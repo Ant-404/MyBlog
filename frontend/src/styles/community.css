@@ -292,11 +292,11 @@
   color: var(--muted);
 }
 .weather-atmosphere {
-  position: absolute;
+  position: fixed;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 1;
+  z-index: 30;
 }
 .weather-atmosphere i {
   position: absolute;
@@ -307,14 +307,14 @@
 .weather-rain i {
   height: 50px;
   width: 1px;
-  background: rgba(245, 247, 255, 0.8);
+  background: color-mix(in srgb, var(--muted) 55%, var(--accent));
 }
 .weather-snow i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 5px #fff8;
+  box-shadow: 0 0 5px color-mix(in srgb, var(--muted) 45%, transparent);
 }
 .weather-glow i {
   width: 7px;
@@ -335,12 +335,12 @@
     transform: translate3d(0, -10px, 0);
   }
   to {
-    transform: translate3d(-40px, 650px, 0);
+    transform: translate3d(-40px, 125dvh, 0);
   }
 }
 @keyframes weather-glow {
   0% {
-    transform: translate3d(0, 620px, 0);
+    transform: translate3d(0, 120dvh, 0);
     opacity: 0;
   }
   35%,

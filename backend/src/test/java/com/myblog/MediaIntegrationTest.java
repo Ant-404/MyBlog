@@ -28,6 +28,33 @@ class MediaIntegrationTest {
   @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
   @Test
+  @org.springframework.transaction.annotation.Transactional
+  @org.springframework.security.test.context.support.WithMockUser(roles = "ADMIN")
+  void pagedLibraryCanFindOlderFilesBeyondTheLegacyLimit() throws Exception {
+    for (int i = 0; i < 205; i++)
+      jdbc.update(
+          "INSERT INTO media_files(filename,original_name,content_type,size_bytes) VALUES"
+              + " (?,?,?,?)",
+          "audit-" + i + ".png",
+          "AuditPhoto-" + i + ".png",
+          "image/png",
+          100);
+    mvc.perform(get("/api/v1/admin/media/page").param("page", "5").param("keyword", "AuditPhoto-"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(205))
+        .andExpect(jsonPath("$.data.items.length()").value(5))
+        .andExpect(jsonPath("$.data.size").value(50));
+    mvc.perform(get("/api/v1/admin/media/page").param("keyword", "AuditPhoto-0.png"))
+        .andExpect(jsonPath("$.data.total").value(1));
+    mvc.perform(get("/api/v1/admin/media/page").param("keyword", "%"))
+        .andExpect(jsonPath("$.data.total").value(0));
+    mvc.perform(get("/api/v1/admin/media/page").param("page", "0"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/admin/media/page").with(anonymous()))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   void imageUploadReadAndDelete() throws Exception {
     var bytes = new ByteArrayOutputStream();
     ImageIO.write(new BufferedImage(4, 4, BufferedImage.TYPE_INT_RGB), "png", bytes);

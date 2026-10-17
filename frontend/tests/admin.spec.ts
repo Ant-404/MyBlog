@@ -5,10 +5,15 @@ test('owner identity is consistent and anonymous admin visits require login', as
   await expect(page.locator('.profile-card h2')).toHaveText('憨Ant')
   await expect(page.locator('.brand')).toContainText('憨Ant')
   await expect(page).toHaveTitle(/憨Ant/)
-  await page.getByRole('link', { name: '管理后台' }).click()
-  await expect(page).toHaveURL(/\/admin\/login$/)
-  await expect(page.getByRole('heading', { name: '憨Ant的管理后台' })).toBeVisible()
-  await page.screenshot({ path: '../docs/screenshots/admin-login.png', fullPage: true })
+  const [admin] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.getByRole('link', { name: '管理后台' }).click(),
+  ])
+  await expect(admin).toHaveURL(/\/admin\/login$/)
+  await expect(admin.getByRole('heading', { name: '憨Ant的管理后台' })).toBeVisible()
+  await expect(page).toHaveURL(/\/$/)
+  await admin.screenshot({ path: '../docs/screenshots/admin-login.png', fullPage: true })
+  await admin.close()
 })
 
 test('login, refresh, dashboard and logout work through the real session API', async ({ page }) => {

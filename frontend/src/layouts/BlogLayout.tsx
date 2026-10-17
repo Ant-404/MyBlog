@@ -7,6 +7,7 @@ import ProfileSidebar from '../components/layout/ProfileSidebar'
 import RightSidebar from '../components/layout/RightSidebar'
 import ScrollToTop from '../components/layout/ScrollToTop'
 import MusicPlayer from '../components/layout/MusicPlayer'
+import WeatherAtmosphere from '../components/layout/WeatherAtmosphere'
 import { useSite } from '../contexts/SiteContext'
 import { demoMode } from '../api/http'
 
@@ -62,6 +63,7 @@ export default function BlogLayout() {
       </footer>
       <ScrollToTop />
       <MusicPlayer />
+      <WeatherAtmosphere />
     </div>
   )
 }

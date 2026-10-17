@@ -26,6 +26,28 @@ public class MediaRepository {
                 rs.getString("created_at")));
   }
 
+  public com.myblog.common.api.PageResponse<MediaResponse> page(int page, String keyword) {
+    String pattern =
+        "%" + keyword.trim().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+    String where = " WHERE LOWER(original_name) LIKE LOWER(?) ESCAPE '!'";
+    var items =
+        jdbc.query(
+            "SELECT * FROM media_files" + where + " ORDER BY id DESC LIMIT 50 OFFSET ?",
+            (rs, n) ->
+                new MediaResponse(
+                    rs.getLong("id"),
+                    "/api/v1/media/" + rs.getString("filename"),
+                    rs.getString("original_name"),
+                    rs.getString("content_type"),
+                    rs.getLong("size_bytes"),
+                    rs.getString("created_at")),
+            pattern,
+            (page - 1) * 50);
+    long total =
+        jdbc.queryForObject("SELECT COUNT(*) FROM media_files" + where, Long.class, pattern);
+    return new com.myblog.common.api.PageResponse<>(items, total, page, 50);
+  }
+
   public void insert(String filename, String name, String type, long size) {
     jdbc.update(
         "INSERT INTO media_files(filename, original_name, content_type, size_bytes) VALUES"
@@ -94,6 +116,8 @@ public class MediaRepository {
             > 0
         || jdbc.queryForObject("SELECT COUNT(*) FROM showcase_images WHERE url=?", Long.class, url)
             > 0
+        || jdbc.queryForObject("SELECT COUNT(*) FROM albums WHERE cover=?", Long.class, url) > 0
+        || jdbc.queryForObject("SELECT COUNT(*) FROM album_photos WHERE url=?", Long.class, url) > 0
         || jdbc.queryForObject("SELECT COUNT(*) FROM members WHERE avatar=?", Long.class, url) > 0;
   }
 

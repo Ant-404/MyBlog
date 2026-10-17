@@ -10,6 +10,7 @@ test('simplified navigation groups article browsing and keeps only two footer li
     '文章',
     '项目',
     '留言墙',
+    '相册',
     '追番',
     '友链',
     '关于',

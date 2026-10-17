@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { guestbookApi } from '../../api/guestbook'
 import { useAsyncData } from '../../hooks/useAsyncData'
 import { useAdminAction } from '../../hooks/useAdminAction'
@@ -11,6 +11,12 @@ export default function AdminGuestbookPage() {
   const [page, setPage] = useState(1)
   const notes = useAsyncData(useCallback(() => guestbookApi.notes(page, true), [page]))
   const { busy, message, run } = useAdminAction(notes.errorStatus)
+  useEffect(() => {
+    if (notes.data && page > 1) {
+      const last = Math.max(1, Math.ceil(notes.data.total / 20))
+      if (page > last) setPage(last)
+    }
+  }, [notes.data, page])
   return (
     <>
       <div className="admin-page-heading">

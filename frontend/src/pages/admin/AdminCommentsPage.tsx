@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { communityApi } from '../../api/community'
 import { useAsyncData } from '../../hooks/useAsyncData'
@@ -8,10 +8,16 @@ import DataState from '../../components/common/DataState'
 export default function AdminCommentsPage() {
   usePageTitle('评论管理')
   const [params, setParams] = useSearchParams()
-  const page = Math.max(1, Number(params.get('page')) || 1)
+  const page = Math.min(100000, Math.max(1, Math.floor(Number(params.get('page')) || 1)))
   const fetch = useCallback(() => communityApi.commentsAdmin(page), [page])
   const { data, loading, error, errorStatus, refresh } = useAsyncData(fetch)
   const { busy, message, run } = useAdminAction(errorStatus)
+  useEffect(() => {
+    if (data && page > 1) {
+      const last = Math.max(1, Math.ceil(data.total / 20))
+      if (page > last) setParams({ page: String(last) }, { replace: true })
+    }
+  }, [data, page, setParams])
   return (
     <>
       <div className="admin-page-heading">

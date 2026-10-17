@@ -174,3 +174,13 @@
 `GET /guestbook?page=1` 返回全部便签；`POST /guestbook` 写 content（最多 500 字）、color（lavender/peach/mint/sky）和隐藏 website。无需账号，按来源十分钟最多 3 次，需 CSRF。发布后立即公开；`GET /admin/guestbook` 查看全部便签，`DELETE /admin/guestbook/{id}?version=N` 删除便签，不提供审核接口。
 
 访客登录、注册、个人中心、公开账号页、会员通知、会员举报与会员管理接口已移除。后台管理员登录仍为 `/auth/login`。旧会员数据表仅用于保留历史内容引用，不再提供访客身份或认证功能。部署先执行 `database/MyBlog.sql` 的幂等结构升级，为 comments 补充 guest_email、guest_url，再重启后端。
+
+## 相册
+
+公开相册、管理员相册及有序照片的接口和请求示例见 [相册说明](albums.md#接口)。
+
+## 后台概况与图片分页
+
+`GET /admin/dashboard` 在原 posts/categories/tags 外返回 drafts、scheduled、albums、photos、comments、notes、media、projects、series、anime。posts 仅统计已到发布日期的公开文章，scheduled 单独统计未来文章；分类、标签和其他管理模块包含未公开记录。照片数为相册照片关联数，同一文件加入两册计两次。歌曲来自本地文件库，不使用旧 QQ 歌曲表推算数量。
+
+`GET /admin/media/page?page=1&keyword=文件名` 返回 PageResponse，每页 50 张，按 ID 降序。仅 ADMIN 可用，关键词最大 100 字，page 范围 1–100000。保留旧 `/admin/media` 数组接口兼容调用。后台已统一使用分页接口，上传成功后返回第一页并清除筛选。

@@ -4,7 +4,7 @@
 
 前台新增五色主题、跟随系统的明暗模式、正文字号、横幅开关、记忆文章视图、搜索联想、文章日历、回到顶部、正文图片放大和代码复制。图片位置、样式文件和组件说明见 [前台定制指南](docs/frontend-customization.md)。
 
-首页支持自动发现 `home2`、`home3` 等横幅图片、随机淡入切换与三层流动波浪；阅读布局、手机搜索、评论草稿与播放器交互见 [动态效果说明](docs/ui-motion.md)。新增项目展示和文章专题，历史说说保留后台管理，前台入口由留言墙替代，启用前需手动执行 SQL，详见 [内容模块说明](docs/showcase.md)。
+首页支持自动发现 `home2`、`home3` 等横幅图片、随机淡入切换与三层流动波浪；阅读布局、手机搜索、评论草稿与播放器交互见 [动态效果说明](docs/ui-motion.md)。新增项目展示和文章专题，历史说说保留数据与兼容接口，前台入口由留言墙替代，启用前需手动执行 SQL，详见 [内容模块说明](docs/showcase.md)。
 
 评论填写昵称、邮箱和可选网址即可发布，无需注册或登录，提交后立即显示；邮箱不会公开。评论与留言墙统一由后台查看和删除，详见 [访客评论说明](docs/comments.md) 和 [天气氛围和留言墙](docs/playful-features.md)。访客会员功能已移除，后台管理员登录保留。
 
@@ -122,14 +122,21 @@ npm run dev
 | 项目列表 / 详情 | `frontend/src/pages/ProjectsPage.tsx` / `ProjectDetailPage.tsx` |
 | 专题列表 / 详情 | `frontend/src/pages/SeriesPage.tsx` / `SeriesDetailPage.tsx` |
 | 留言墙（兼容旧说说地址） | `frontend/src/pages/GuestbookPage.tsx` |
-| 用户个人中心 / 公开资料 | `frontend/src/pages/AccountPage.tsx` / `MemberProfilePage.tsx` |
-| 留言墙 | `frontend/src/pages/GuestbookPage.tsx` |
-| 用户与社区后台 | `frontend/src/pages/admin/AdminMembersPage.tsx` |
+| 相册列表 / 详情 | `frontend/src/pages/AlbumsPage.tsx` / `AlbumDetailPage.tsx` |
+| 相册后台 | `frontend/src/pages/admin/AdminAlbumsPage.tsx` |
 | 404 / 页面异常 | `NotFoundPage.tsx` / `ErrorPage.tsx` |
 
 站点名称、作者和菜单在 `frontend/src/config/site.ts` 修改；颜色在 `styles/tokens.css` 修改；公共布局在 `layouts/BlogLayout.tsx` 修改；样式布局在 `styles/global.css` 修改。
 
+## 相册
+
+前台导航新增“相册”（`/albums`），后台“相册管理”（`/admin/albums`）可创建、编辑和删除相册，设置名称、介绍、封面、排序与公开状态。照片复用图片库上传，可填写说明、上下移动排序、设为封面或移除；每册最多 200 张。新相册默认隐藏，勾选“公开显示”并保存后才在前台展示。前台使用与小站统一的卡片布局与叠放照片画廊，支持按相册名、介绍、照片说明搜索，以及照片放大、左右切换与 Esc 关闭。
+
+启用前先停止后端，手动执行 `database/MyBlog.sql`（包含 V14 相册表），成功后重启后端。删除相册或移除照片只解除关联，图片文件继续保留在图片库；保存后的相册引用会阻止图片被直接删除。操作与接口详见 [相册说明](docs/albums.md)。
+
 ## 验证与构建
+
+后台已按内容、互动和站点分组，工作台补齐草稿、相册与留言概况，图片库支持搜索与分页。功能评估和仍建议补充的能力见 [后台检查记录](docs/admin-review-2026-10-17.md)。
 
 ```powershell
 cd D:\MyBlog\frontend
@@ -195,7 +202,7 @@ V5 迁移增加文章版本字段，避免多个编辑窗口互相覆盖。出�
 | 评论审核 | `/admin/comments` | 待审核、通过、拒绝、重新审核、永久删除、分页 |
 | 阅读统计 | `/admin/statistics` | 累计/今日阅读、30 天趋势、文章排行、待审核评论数 |
 
-图片支持 PNG/JPEG，最多 5MB、2000 万像素，重新编码后按随机文件名保存。本机 `UPLOAD_DIRECTORY` 已固定为 `D:/MyBlog/uploads`，数据库存储图片元数据和引用地址；列表显示最近 200 张。已有文章（包括草稿）或头像/关于正文正在引用的图片禁止删除。编辑器图片工具栏仍可手动填写外部地址，新增“上传 / 选择”按钮调用站内图片库。
+图片支持 PNG/JPEG，最多 5MB、2000 万像素，重新编码后按随机文件名保存。本机 `UPLOAD_DIRECTORY` 已固定为 `D:/MyBlog/uploads`，数据库存储图片元数据和引用地址；后台支持按文件名搜索，每页 50 张，可继续翻页访问旧文件。被文章（包括草稿）、相册或其他内容引用的图片禁止删除。编辑器图片工具栏仍可手动填写外部地址，“上传 / 选择”按钮调用站内图片库。
 
 前台文章提供目录、阅读进度、按发布日期排序的上一篇/下一篇，以及 Java、JavaScript、TypeScript、SQL、CSS、HTML/XML、Bash、JSON 代码高亮。Markdown 代码块需填写语言名。草稿和未来文章不会进入相邻文章、RSS 或站点地图。
 

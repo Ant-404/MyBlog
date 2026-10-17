@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
+@org.springframework.validation.annotation.Validated
 public class MediaController {
   private final MediaService service;
   private final com.myblog.guestbook.GuestbookRateLimiter uploadLimiter;
@@ -33,6 +34,17 @@ public class MediaController {
   @GetMapping("/api/v1/admin/media")
   public ApiResponse<List<MediaResponse>> list() {
     return ApiResponse.success(service.list());
+  }
+
+  @GetMapping("/api/v1/admin/media/page")
+  public ApiResponse<com.myblog.common.api.PageResponse<MediaResponse>> page(
+      @RequestParam(defaultValue = "1")
+          @jakarta.validation.constraints.Min(1)
+          @jakarta.validation.constraints.Max(100000)
+          int page,
+      @RequestParam(defaultValue = "") @jakarta.validation.constraints.Size(max = 100)
+          String keyword) {
+    return ApiResponse.success(service.page(page, keyword));
   }
 
   @PostMapping("/api/v1/admin/media")

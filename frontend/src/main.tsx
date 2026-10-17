@@ -23,3 +23,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </SiteProvider>
   </React.StrictMode>,
 )
+
+import './styles/albums.css'

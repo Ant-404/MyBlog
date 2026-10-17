@@ -147,7 +147,7 @@ export default function AppearanceSettings() {
         </label>
         <label className="banner-setting">
           <span>
-            动态效果<small>横幅切换、流动波浪与卡片入场</small>
+            动态效果<small>横幅切换、流动波浪、天气氛围与卡片入场</small>
           </span>
           <input
             type="checkbox"
@@ -156,7 +156,7 @@ export default function AppearanceSettings() {
           />
         </label>
         <fieldset>
-          <legend>横幅天气氛围</legend>
+          <legend>全屏天气氛围</legend>
           <div className="setting-segments">
             {weatherOptions.map((value, index) => (
               <button
@@ -169,7 +169,7 @@ export default function AppearanceSettings() {
               </button>
             ))}
           </div>
-          <small className="muted">仅装饰效果，不读取位置或真实天气；关闭动态效果后隐藏。</small>
+          <small className="muted">覆盖整个屏幕，随滚动保持；关闭动态效果后隐藏。</small>
         </fieldset>
         <button
           className="text-button appearance-reset"

@@ -6,7 +6,7 @@
 -- 执行账号需要 CREATE / ALTER / INDEX / CREATE ROUTINE 等权限；先备份已有数据库。
 -- 不包含删库、删表操作。历史 flyway_schema_history 表保留但不再使用。
 -- ------------------------
--- 历史更新记录（当前文件已合并 V1-V13，下面的记录不代表可单独执行的更新块）
+-- 历史更新记录（当前文件已合并 V1-V14，下面的记录不代表可单独执行的更新块）
 -- [V1-V2] 基础文章、分类、标签、友链与示例内容。
 -- [V3-V4] 管理员表与憨Ant的初始资料。
 -- [V5] 文章编辑版本与后台排序索引。
@@ -18,6 +18,7 @@
 -- [V11 | 2026-10-15] 邮箱验证会员、一次性令牌、评论账号与回复、通知、举报和留言墙。
 -- [V12 | 2026-10-15] 留言墙支持匿名便签，允许 guestbook_entries.member_id 为空。
 -- [V13 | 2026-10-16] 取消访客账号，评论新增私有邮箱和可选网址；旧会员表保留历史引用。
+-- [V14 | 2026-10-17] 独立相册、有序照片及公开状态，不插入示例相册。
 -- [整理 | 2026-10-15] 合并为唯一文件，移除 Flyway，改为手动执行。
 -- ------------------------
 -- 后续维护约定：在本文件末尾追加基于已有数据库的增量更新，不修改已有 SQL。
@@ -519,6 +520,30 @@ WHERE NOT EXISTS (SELECT 1 FROM music_settings WHERE id = 1);
 
 -- ------------------------
 -- 后续增量更新追加区
--- 当前基线：V13（2026-10-16）；此处暂未追加新的 SQL。
+-- 当前基线：V13（2026-10-16）；以下追加 V14。
 -- 下次更新在文件尾部另起分隔块，注明版本、日期、前置版本和具体用途。
 -- 每个更新块应可在对应已有数据库上完整执行，不依赖前文的临时变量或存储过程。
+
+-- ------------------------
+-- V14 | 2026-10-17 | 相册与照片；适用于 V13 已有库及全新安装，可重复执行。
+CREATE TABLE IF NOT EXISTS albums (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    description VARCHAR(2000) NOT NULL DEFAULT '',
+    cover VARCHAR(1000) NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    visible BOOLEAN NOT NULL DEFAULT FALSE,
+    version INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_albums_visibility_sort (visible, sort_order, id)
+);
+CREATE TABLE IF NOT EXISTS album_photos (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    album_id BIGINT NOT NULL,
+    url VARCHAR(1000) NOT NULL,
+    caption VARCHAR(500) NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_album_photos_album FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE,
+    INDEX idx_album_photos_sort (album_id, sort_order, id)
+);

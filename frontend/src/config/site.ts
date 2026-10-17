@@ -10,6 +10,7 @@ export const site = {
     { label: '文章', path: '/categories' },
     { label: '项目', path: '/projects' },
     { label: '留言墙', path: '/guestbook' },
+    { label: '相册', path: '/albums' },
     { label: '追番', path: '/anime' },
     { label: '友链', path: '/friends' },
     { label: '关于', path: '/about' },

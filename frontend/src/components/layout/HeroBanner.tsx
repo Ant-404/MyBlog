@@ -3,7 +3,6 @@ import { ArrowDown } from 'lucide-react'
 import images from 'virtual:home-images'
 import { useSite } from '../../contexts/SiteContext'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
-import WeatherAtmosphere from './WeatherAtmosphere'
 
 const switches = ['on', 'off'] as const
 const banners = ['show', 'hide'] as const
@@ -109,7 +108,6 @@ export default function HeroBanner() {
           向下探索 <ArrowDown size={14} />
         </a>
       </div>
-      <WeatherAtmosphere paused={!animate || hidden} />
       <div className="hero-wave" aria-hidden="true">
         {[0, 1, 2].map((layer) => (
           <svg

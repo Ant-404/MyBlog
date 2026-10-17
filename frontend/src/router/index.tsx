@@ -10,6 +10,9 @@ const CategoryPage = lazy(() => import('../pages/CategoryPage'))
 const TagPage = lazy(() => import('../pages/TagPage'))
 const FriendPage = lazy(() => import('../pages/FriendPage'))
 const AboutPage = lazy(() => import('../pages/AboutPage'))
+const AlbumsPage = lazy(() => import('../pages/AlbumsPage'))
+const AlbumDetailPage = lazy(() => import('../pages/AlbumDetailPage'))
+const AdminAlbumsPage = lazy(() => import('../pages/admin/AdminAlbumsPage'))
 const AnimePage = lazy(() => import('../pages/AnimePage'))
 const ProjectsPage = lazy(() => import('../pages/ProjectsPage'))
 const ProjectDetailPage = lazy(() => import('../pages/ProjectDetailPage'))
@@ -59,6 +62,7 @@ export const router = createBrowserRouter([
       { path: 'media', element: page(AdminMediaPage) },
       { path: 'taxonomy', element: page(AdminTaxonomyPage) },
       { path: 'friends', element: page(AdminFriendsPage) },
+      { path: 'albums', element: page(AdminAlbumsPage) },
       { path: 'anime', element: page(AdminAnimePage) },
       { path: 'music', element: page(AdminMusicPage) },
       { path: 'projects', element: page(AdminProjectsPage) },
@@ -83,6 +87,8 @@ export const router = createBrowserRouter([
       { path: '/tags', element: page(TagPage) },
       { path: '/friends', element: page(FriendPage) },
       { path: '/about', element: page(AboutPage) },
+      { path: '/albums', element: page(AlbumsPage) },
+      { path: '/albums/:id', element: page(AlbumDetailPage) },
       { path: '/anime', element: page(AnimePage) },
       { path: '/projects', element: page(ProjectsPage) },
       { path: '/projects/:id', element: page(ProjectDetailPage) },

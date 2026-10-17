@@ -1,12 +1,20 @@
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
 
 export const weatherOptions = ['clear', 'rain', 'snow', 'glow'] as const
-export default function WeatherAtmosphere({ paused }: { paused: boolean }) {
+export default function WeatherAtmosphere() {
   const [weather] = useStoredPreference('myblog-weather', 'clear', weatherOptions)
+  const [hidden, setHidden] = useState(() => document.hidden)
+  useEffect(() => {
+    const onVisibility = () => setHidden(document.hidden)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
   if (weather === 'clear') return null
-  return (
+  return createPortal(
     <div
-      className={`weather-atmosphere weather-${weather} ${paused ? 'weather-paused' : ''}`}
+      className={`weather-atmosphere weather-${weather} ${hidden ? 'weather-paused' : ''}`}
       aria-hidden="true"
     >
       {Array.from({ length: weather === 'rain' ? 28 : 18 }, (_, i) => (
@@ -20,6 +28,7 @@ export default function WeatherAtmosphere({ paused }: { paused: boolean }) {
           }}
         />
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }

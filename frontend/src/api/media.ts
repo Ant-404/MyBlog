@@ -1,4 +1,5 @@
 import { request, mutate } from './http'
+import type { PageResult } from '../types/blog'
 import type { MediaFile } from '../types/media'
 import { prepareImageUpload, prepareCommentImage } from '../utils/imageUpload'
 
@@ -16,6 +17,10 @@ export const mediaApi = {
     })
   },
   list: () => request<MediaFile[]>('/admin/media'),
+  page: (page = 1, keyword = '') =>
+    request<PageResult<MediaFile>>(
+      `/admin/media/page?${new URLSearchParams({ page: String(page), keyword })}`,
+    ),
   remove: (id: number) => mutate<void>(`/admin/media/${id}`, 'DELETE'),
   async upload(
     file: File,

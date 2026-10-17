@@ -9,7 +9,7 @@ export default function AdminMediaPage() {
           <h1>
             图片管理<span className="heading-dot">.</span>
           </h1>
-          <p className="muted">为文章上传封面和正文图片。</p>
+          <p className="muted">管理文章、相册和站点使用的图片，支持搜索与分页。</p>
         </div>
       </div>
       <section className="card management-card">

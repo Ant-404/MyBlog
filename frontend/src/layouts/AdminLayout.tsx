@@ -14,6 +14,7 @@ import {
   Tv,
   Music2,
   BriefcaseBusiness,
+  Camera,
 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import { HttpError } from '../api/http'
@@ -71,59 +72,71 @@ export default function AdminLayout() {
           <img className="site-logo" src="/images/log.jpg" width={28} height={28} alt="" />
           <span>{site.name}</span>
         </Link>
-        <span className="admin-sidebar-caption">内容管理</span>
-        <nav aria-label="后台导航">
+        <nav aria-label="后台导航" className="admin-grouped-nav">
           <NavLink to="/admin" end>
             <LayoutDashboard size={18} />
             工作台
           </NavLink>
-          <NavLink to="/admin/posts">
-            <FileText size={18} />
-            文章管理
-          </NavLink>
-          <NavLink to="/admin/guestbook">
-            <MessageSquare size={18} />
-            留言墙管理
-          </NavLink>
-          <NavLink to="/admin/media">
-            <Images size={18} />
-            图片管理
-          </NavLink>
-          <NavLink to="/admin/projects">
-            <BriefcaseBusiness size={18} />
-            项目展示
-          </NavLink>
-          <NavLink
-            to="/admin/taxonomy"
-            className={location.pathname === '/admin/series' ? 'active' : undefined}
-          >
-            <Tags size={18} />
-            内容组织
-          </NavLink>
-          <NavLink to="/admin/friends">
-            <Link2 size={18} />
-            友链管理
-          </NavLink>
-          <NavLink to="/admin/anime">
-            <Tv size={18} />
-            追番管理
-          </NavLink>
-          <NavLink to="/admin/music">
-            <Music2 size={18} />
-            音乐管理
-          </NavLink>
-          <NavLink to="/admin/settings">
-            <Settings size={18} />
-            站点设置
-          </NavLink>
-          <NavLink to="/admin/comments">
-            <MessageSquare size={18} />
-            评论管理
-          </NavLink>
-          <NavLink to="/admin/statistics">
-            <BarChart3 size={18} />
-            阅读统计
-          </NavLink>
+          <div className="admin-nav-group">
+            <span className="admin-nav-caption">内容与素材</span>
+            <NavLink to="/admin/posts">
+              <FileText size={18} />
+              文章管理
+            </NavLink>
+            <NavLink to="/admin/albums">
+              <Camera size={18} />
+              相册管理
+            </NavLink>
+            <NavLink to="/admin/projects">
+              <BriefcaseBusiness size={18} />
+              项目展示
+            </NavLink>
+            <NavLink
+              to="/admin/taxonomy"
+              className={location.pathname === '/admin/series' ? 'active' : undefined}
+            >
+              <Tags size={18} />
+              内容组织
+            </NavLink>
+            <NavLink to="/admin/media">
+              <Images size={18} />
+              图片管理
+            </NavLink>
+          </div>
+          <div className="admin-nav-group">
+            <span className="admin-nav-caption">互动与链接</span>
+            <NavLink to="/admin/comments">
+              <MessageSquare size={18} />
+              评论管理
+            </NavLink>
+            <NavLink to="/admin/guestbook">
+              <MessageSquare size={18} />
+              留言墙管理
+            </NavLink>
+            <NavLink to="/admin/friends">
+              <Link2 size={18} />
+              友链管理
+            </NavLink>
+          </div>
+          <div className="admin-nav-group">
+            <span className="admin-nav-caption">生活与站点</span>
+            <NavLink to="/admin/anime">
+              <Tv size={18} />
+              追番管理
+            </NavLink>
+            <NavLink to="/admin/music">
+              <Music2 size={18} />
+              音乐管理
+            </NavLink>
+            <NavLink to="/admin/statistics">
+              <BarChart3 size={18} />
+              阅读统计
+            </NavLink>
+            <NavLink to="/admin/settings">
+              <Settings size={18} />
+              站点设置
+            </NavLink>
+          </div>
         </nav>
         <Link className="admin-public-link" to="/">
           查看小站 <ArrowUpRight size={16} />
@@ -138,6 +151,7 @@ export default function AdminLayout() {
               {{
                 posts: '文章管理',
                 media: '图片管理',
+                albums: '相册管理',
                 taxonomy: '内容组织',
                 friends: '友链管理',
                 settings: '站点设置',

@@ -41,7 +41,7 @@ export default function AdminStatisticsPage() {
                 <strong>{data.todayReads}</strong>
               </section>
               <section className="card">
-                <span>待管理评论</span>
+                <span>文章评论总数</span>
                 <strong>{data.totalComments}</strong>
                 <Link to="/admin/comments">管理评论</Link>
               </section>

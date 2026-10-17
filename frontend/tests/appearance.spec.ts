@@ -1,5 +1,61 @@
 import { test, expect } from '@playwright/test'
 
+test('fullscreen weather survives scrolling, hidden banners and article navigation', async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/')
+  await page.locator('summary[aria-label="外观设置"]').click()
+  await expect(page.getByText('全屏天气氛围', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '雨天', exact: true }).click()
+  const weather = page.locator('.weather-atmosphere')
+  await expect(weather).toBeVisible()
+  await page.getByRole('checkbox', { name: /显示图片横幅/ }).uncheck()
+  await expect(page.locator('.hero')).toBeHidden()
+  await expect(weather).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  async function expectFullscreen() {
+    const viewport = page.viewportSize()!
+    const bounds = (await weather.boundingBox())!
+    expect(bounds.x).toBe(0)
+    expect(bounds.y).toBe(0)
+    expect(bounds.height).toBe(viewport.height)
+    // Desktop browsers reserve a gutter for the page scrollbar.
+    expect(bounds.width).toBeGreaterThanOrEqual(viewport.width - 20)
+    expect(bounds.width).toBeLessThanOrEqual(viewport.width)
+  }
+  await expectFullscreen()
+  await page.goto('/posts/hello-world')
+  await expect(page.locator('.article-page')).toBeVisible()
+  await expect(weather).toHaveClass(/weather-rain/)
+  await page.locator('summary[aria-label="外观设置"]').click()
+  for (const [name, mode] of [
+    ['飘雪', 'snow'],
+    ['微光', 'glow'],
+  ]) {
+    await page.getByRole('button', { name, exact: true }).click()
+    await expect(weather).toHaveClass(new RegExp(`weather-${mode}`))
+    await expect(weather).toBeVisible()
+  }
+  await page.getByRole('checkbox', { name: /动态效果/ }).uncheck()
+  await expect(weather).toBeHidden()
+  await page.getByRole('checkbox', { name: /动态效果/ }).check()
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(weather).toBeHidden()
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(weather).toBeVisible()
+  await page.getByRole('button', { name: '飘雪', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expectFullscreen()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('weather-mobile.png'), fullPage: false })
+  await page.locator('summary[aria-label="外观设置"]').click()
+  await page.getByRole('button', { name: '晴天', exact: true }).click()
+  await expect(weather).toHaveCount(0)
+})
+
 test('appearance preferences persist and system theme reacts to changes', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
   await page.goto('/')
