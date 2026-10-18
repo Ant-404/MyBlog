@@ -19,6 +19,8 @@ const ProjectDetailPage = lazy(() => import('../pages/ProjectDetailPage'))
 const SeriesPage = lazy(() => import('../pages/SeriesPage'))
 const SeriesDetailPage = lazy(() => import('../pages/SeriesDetailPage'))
 const GuestbookPage = lazy(() => import('../pages/GuestbookPage'))
+const MomentsPage = lazy(() => import('../pages/MomentsPage'))
+const AdminMomentsPage = lazy(() => import('../pages/admin/AdminMomentsPage'))
 const AdminGuestbookPage = lazy(() => import('../pages/admin/AdminGuestbookPage'))
 const AdminProjectsPage = lazy(() => import('../pages/admin/AdminProjectsPage'))
 const AdminSeriesPage = lazy(() => import('../pages/admin/AdminSeriesPage'))
@@ -67,7 +69,7 @@ export const router = createBrowserRouter([
       { path: 'music', element: page(AdminMusicPage) },
       { path: 'projects', element: page(AdminProjectsPage) },
       { path: 'series', element: page(AdminSeriesPage) },
-      { path: 'moments', element: <Navigate to="/admin/guestbook" replace /> },
+      { path: 'moments', element: page(AdminMomentsPage) },
       { path: 'settings', element: page(AdminSettingsPage) },
       { path: 'comments', element: page(AdminCommentsPage) },
       { path: 'statistics', element: page(AdminStatisticsPage) },
@@ -94,7 +96,7 @@ export const router = createBrowserRouter([
       { path: '/projects/:id', element: page(ProjectDetailPage) },
       { path: '/series', element: page(SeriesPage) },
       { path: '/series/:id', element: page(SeriesDetailPage) },
-      { path: '/moments', element: <Navigate to="/guestbook" replace /> },
+      { path: '/moments', element: page(MomentsPage) },
       { path: '/guestbook', element: page(GuestbookPage) },
       { path: '*', element: page(NotFoundPage) },
     ],

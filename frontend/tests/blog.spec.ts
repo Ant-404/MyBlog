@@ -9,9 +9,8 @@ test('simplified navigation groups article browsing and keeps only two footer li
     '首页',
     '文章',
     '项目',
+    '说说',
     '留言墙',
-    '相册',
-    '追番',
     '友链',
     '关于',
   ])
@@ -48,8 +47,8 @@ test('simplified navigation groups article browsing and keeps only two footer li
     'page',
   )
   await page.goto('/moments')
-  await expect(page).toHaveURL(/\/guestbook$/)
-  await expect(mainNav.getByRole('link', { name: '留言墙', exact: true })).toHaveAttribute(
+  await expect(page).toHaveURL(/\/moments$/)
+  await expect(mainNav.getByRole('link', { name: '说说', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   )

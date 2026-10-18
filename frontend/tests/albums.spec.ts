@@ -93,6 +93,7 @@ test('create album, upload and order photos, publish, preview, hide and delete',
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true)
     await page.getByRole('button', { name: '打开或关闭导航' }).click()
+    await page.getByRole('button', { name: '生活', exact: true }).click()
     await expect(
       page
         .getByRole('navigation', { name: '主导航' })

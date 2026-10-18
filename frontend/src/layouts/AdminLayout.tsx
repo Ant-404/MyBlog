@@ -15,6 +15,7 @@ import {
   Music2,
   BriefcaseBusiness,
   Camera,
+  Feather,
 } from 'lucide-react'
 import { authApi } from '../api/auth'
 import { HttpError } from '../api/http'
@@ -86,6 +87,10 @@ export default function AdminLayout() {
             <NavLink to="/admin/albums">
               <Camera size={18} />
               相册管理
+            </NavLink>
+            <NavLink to="/admin/moments">
+              <Feather size={18} />
+              说说管理
             </NavLink>
             <NavLink to="/admin/projects">
               <BriefcaseBusiness size={18} />

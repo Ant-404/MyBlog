@@ -129,18 +129,73 @@ test('series editor orders articles and excludes drafts from the public reading 
   }
 })
 
-test('legacy moments routes redirect to guestbook management and public wall', async ({ page }) => {
+test('moments can be published independently, searched and previewed on desktop and mobile', async ({
+  page,
+}, testInfo) => {
   await login(page)
   await page.goto('/admin/moments')
-  await expect(page).toHaveURL(/\/admin\/guestbook$/)
-  await expect(page.getByRole('heading', { name: /^留言墙管理/ })).toBeVisible()
+  await expect(page).toHaveURL(/\/admin\/moments$/)
+  await expect(page.getByRole('heading', { name: /^说说管理/ })).toBeVisible()
   await expect(
     page.getByRole('navigation', { name: '后台导航' }).getByRole('link', { name: '说说管理' }),
-  ).toHaveCount(0)
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/moments')
-  await expect(page).toHaveURL(/\/guestbook$/)
-  await expect(page.getByRole('heading', { name: /留言墙/ })).toBeVisible()
+  ).toBeVisible()
+  const title = `散步随记-${Date.now()}`
+  let id: number | undefined
+  try {
+    await page.getByLabel('说说标题（可选）').fill(title)
+    await page
+      .getByLabel('说说正文', { exact: true })
+      .fill('傍晚出去走了走，风正好。\n不赶时间，也记下这一刻。')
+    await page.getByLabel('发布日期').fill('2026-01-03')
+    await page.getByLabel('添加图片地址').fill('/images/landscape.svg')
+    await page.getByRole('button', { name: '添加图片', exact: true }).click()
+    await page.getByLabel('公开显示').check()
+    await page.getByRole('button', { name: '新增说说', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: '操作成功' })).toBeVisible()
+    id = (
+      await (
+        await page.request.get(`/api/v1/admin/moments?keyword=${encodeURIComponent(title)}`)
+      ).json()
+    ).data.items[0].id
+    await page.goto('/moments')
+    await expect(page.locator('.moments-entry-card').filter({ hasText: title })).toBeVisible()
+    await page.getByLabel('搜索说说').fill(title)
+    await page.getByLabel('搜索说说').press('Enter')
+    await expect(page.locator('.moments-entry')).toHaveCount(1)
+    await expect(page.locator('.moments-content')).toHaveText(
+      '傍晚出去走了走，风正好。\n不赶时间，也记下这一刻。',
+    )
+    await page.screenshot({ path: testInfo.outputPath('moments-desktop.png'), fullPage: true })
+    await page.locator('.moments-photo-grid img').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+    await page.getByLabel('搜索说说').fill('找不到的说说内容')
+    await page.getByLabel('搜索说说').press('Enter')
+    await expect(page.getByRole('heading', { name: '没有找到这个片刻' })).toBeVisible()
+    await page.getByRole('button', { name: '查看全部说说' }).click()
+    await expect(page.locator('.moments-entry-card').filter({ hasText: title })).toBeVisible()
+    await page.getByRole('button', { name: '切换深色模式' }).click()
+    await page.screenshot({ path: testInfo.outputPath('moments-dark.png'), fullPage: true })
+    await page.getByRole('button', { name: '切换浅色模式' }).click()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.screenshot({ path: testInfo.outputPath('moments-mobile.png'), fullPage: true })
+    await page.getByRole('button', { name: '打开或关闭导航' }).click()
+    await page.getByRole('button', { name: '生活', exact: true }).click()
+    await expect(
+      page.getByRole('navigation', { name: '主导航' }).getByRole('link', { name: /^相册/ }),
+    ).toBeVisible()
+    await page.screenshot({ path: testInfo.outputPath('navigation-mobile.png'), fullPage: true })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page
+      .getByRole('navigation', { name: '主导航' })
+      .getByRole('link', { name: /^相册/ })
+      .click()
+    await expect(page).toHaveURL(/\/albums$/)
+    await expect(page.getByRole('button', { name: '生活', exact: true })).not.toBeVisible()
+  } finally {
+    if (id) await remove(page, 'moments', id)
+  }
 })
 
 test('stale editor keeps current input when another window changes the project', async ({

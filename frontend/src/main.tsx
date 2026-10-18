@@ -25,3 +25,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 
 import './styles/albums.css'
+import './styles/moments.css'
