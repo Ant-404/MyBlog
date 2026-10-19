@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown } from 'lucide-react'
 import images from 'virtual:home-images'
+import responsiveImages from 'virtual:responsive-images'
 import { useSite } from '../../contexts/SiteContext'
 import { useStoredPreference } from '../../hooks/useStoredPreference'
 
@@ -25,6 +26,7 @@ export default function HeroBanner() {
   const sequence = useRef(0)
   const available = images.filter((src) => !failed.includes(src))
   const animate = motion === 'on' && !reduced
+  const variants = responsiveImages[picture.current]
 
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)')
@@ -56,6 +58,10 @@ export default function HeroBanner() {
       setFailed((old) => [...old, src])
       setLoading(false)
     }
+    if (responsiveImages[src]) {
+      next.sizes = '100vw'
+      next.srcset = responsiveImages[src].webp
+    }
     next.src = src
   }
 
@@ -68,21 +74,41 @@ export default function HeroBanner() {
   return (
     <section className={`hero ${animate ? '' : 'hero-still'}`} aria-label="小站横幅">
       <div className="hero-pictures" aria-hidden="true">
-        {picture.previous && <img className="hero-picture" src={picture.previous} alt="" />}
-        <img
-          key={picture.current}
-          className="hero-picture hero-picture-current"
-          src={picture.current}
-          alt=""
-          fetchPriority="high"
-          onError={() => {
-            setFailed((old) => [...old, picture.current])
-            setPicture({
-              previous: '',
-              current: available.find((src) => src !== picture.current) || fallback,
-            })
-          }}
-        />
+        {picture.previous && (
+          <picture>
+            {responsiveImages[picture.previous] && (
+              <source
+                type="image/webp"
+                srcSet={responsiveImages[picture.previous].webp}
+                sizes="100vw"
+              />
+            )}
+            <img className="hero-picture" src={picture.previous} alt="" />
+          </picture>
+        )}
+        <picture key={picture.current}>
+          {variants && (
+            <>
+              <source type="image/webp" srcSet={variants.webp} sizes="100vw" />
+              <source type="image/avif" srcSet={variants.avif} sizes="100vw" />
+            </>
+          )}
+          <img
+            key={picture.current}
+            className="hero-picture hero-picture-current"
+            src={picture.current}
+            alt=""
+            fetchPriority="high"
+            decoding="async"
+            onError={() => {
+              setFailed((old) => [...old, picture.current])
+              setPicture({
+                previous: '',
+                current: available.find((src) => src !== picture.current) || fallback,
+              })
+            }}
+          />
+        </picture>
       </div>
       {available.length > 1 && (
         <button

@@ -67,6 +67,11 @@ export default function AdminLoginPage() {
         <span className="eyebrow">A SPACE TO CREATE</span>
         <h1>{site.author}的管理后台</h1>
         <p className="muted">登录后，继续记录与创作。</p>
+        {typeof location.state?.message === 'string' && (
+          <p className="form-success" role="status">
+            {location.state.message}
+          </p>
+        )}
         <form onSubmit={login} autoComplete="off">
           <label htmlFor="admin-username">管理员账号</label>
           <input

@@ -56,10 +56,15 @@ server {
 
 后台“站点设置”中的站点公开地址上线时改为真实域名根地址（例如 `https://blog.example.com`），RSS 与站点地图以该地址生成链接。`/rss.xml` 和 `/sitemap.xml` 需代理到后端，不能由 SPA 回退接管。
 
-评论默认待审核，每个来源地址 10 分钟最多提交 5 次；登录和评论限流均为单实例内存状态。反向代理部署时设置 `FORWARD_HEADERS_STRATEGY=native`，后端只允许可信代理连接，由代理覆盖转发头；未使用可信代理时保留 `none`。上面的 Nginx 配置覆盖来源头，避免直接信任访客填写的地址。正式部署还需启用 TLS。
+评论无需访客账号，提交后立即公开，每个来源地址 10 分钟最多提交 5 次；登录和评论限流均为单实例内存状态。反向代理部署时设置 `FORWARD_HEADERS_STRATEGY=native`，后端只允许可信代理连接，由代理覆盖转发头；未使用可信代理时保留 `none`。上面的 Nginx 配置覆盖来源头，避免直接信任访客填写的地址。正式部署还需启用 TLS。
 
 统计从功能启用时开始，不补算历史阅读。同一会话同一天对同一文章只计一次；清除 Cookie、新会话或机器人请求可能增加计数，因此不是独立访客或完整网站流量分析。日期以 Asia/Shanghai 计算。
 
 ## 音乐与追番
 
 播放器使用后端本地音乐库。更新代码后重启后端，在 `/admin/music` 上传音乐（最多 50MB）、编辑歌名/歌手、替换封面（最多 5MB），保存后即可使用，无需再次构建前端。默认保存于 `${UPLOAD_DIRECTORY}/music`，可用 `MUSIC_DIRECTORY` 设置绝对路径；音频、封面和 `library.json` 必须一起备份。已有歌曲目录通过 `MUSIC_SOURCE_DIRECTORY` 指定，开发时默认识别项目的 `frontend/public/music/`；生产环境应设为服务器上的实际绝对路径。后端 `/api/v1/music/local/{id}/audio` 支持 Range/206，代理请保留 Range 请求头。Nginx 上传限制需至少 56m。仅运行一个后端实例写入此目录；多实例部署应改用共享的数据库/对象存储方案。无需修改 SQL，历史 QQ 接口保留兼容。
+
+
+## 备份、SEO 和质量检查
+
+全站备份和恢复使用 PowerShell 7 的 `backend/scripts/Backup-Site.ps1` 与 `Restore-Site.ps1`。可选 `npm run build:prerender` 为首页与公开文章生成静态分享信息；Nginx 的 `try_files $uri $uri/ /index.html` 可直接访问对应 index.html。发布、撤稿、改标题或域名后需重新构建并替换整个 dist，避免保留旧静态页面。具体命令见 [optimizations.md](optimizations.md)。GitHub Actions 工作流使用独立 H2，不读取生产数据库。

@@ -28,6 +28,14 @@ export default function AdminMusicPage() {
     setTitle(track.title)
     setArtist(track.artist)
   }
+  function move(index: number, direction: number) {
+    if (!settings) return
+    const tracks = [...settings.tracks]
+    const target = index + direction
+    if (target < 0 || target >= tracks.length) return
+    ;[tracks[index], tracks[target]] = [tracks[target], tracks[index]]
+    void run(async () => updated(await musicApi.reorder(tracks)))
+  }
   function uploadAudio(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -85,7 +93,7 @@ export default function AdminMusicPage() {
             </label>
           </div>
           <ol className="admin-track-list music-library-list">
-            {settings?.tracks.map((track) => (
+            {settings?.tracks.map((track, index) => (
               <li key={track.id}>
                 <div className="music-library-row">
                   {track.cover ? (
@@ -105,8 +113,47 @@ export default function AdminMusicPage() {
                   <span className="music-library-info">
                     <strong>{track.title}</strong>
                     <small>{track.artist || '未填写歌手'}</small>
+                    {track.hidden && <small>已移出播放列表</small>}
                   </span>
                   <div className="music-library-actions">
+                    <button
+                      className="text-button"
+                      disabled={busy || !!editing || index === 0}
+                      aria-label={`上移 ${track.title}`}
+                      onClick={() => move(index, -1)}
+                    >
+                      上移
+                    </button>
+                    <button
+                      className="text-button"
+                      disabled={busy || !!editing || index === settings.tracks.length - 1}
+                      aria-label={`下移 ${track.title}`}
+                      onClick={() => move(index, 1)}
+                    >
+                      下移
+                    </button>
+                    <button
+                      className="text-button"
+                      disabled={busy || !!editing}
+                      aria-label={`${track.hidden ? '恢复' : '移除'} ${track.title}`}
+                      onClick={() => {
+                        if (
+                          track.hidden ||
+                          window.confirm(`将“${track.title}”移出播放列表？文件会保留，可随时恢复。`)
+                        )
+                          void run(async () =>
+                            updated(
+                              await musicApi.visibility(
+                                track.id,
+                                track.version || 0,
+                                !track.hidden,
+                              ),
+                            ),
+                          )
+                      }}
+                    >
+                      {track.hidden ? '恢复到播放列表' : '移出播放列表'}
+                    </button>
                     <a
                       className="text-button"
                       href={track.audioUrl}

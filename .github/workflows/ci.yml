@@ -1,0 +1,62 @@
+name: Quality checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      JAVA_TOOL_OPTIONS: '-Dfile.encoding=UTF-8'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Check formatting
+        run: npm run format:check
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+      - name: Backend tests and package
+        run: mvn --batch-mode verify
+        working-directory: backend
+      - name: Check Java formatting
+        shell: pwsh
+        run: ./backend/scripts/Format-Java.ps1 -Check
+      - name: Test backup integrity checks
+        shell: pwsh
+        run: ./backend/scripts/Test-SiteBackup.ps1
+      - name: Install browser
+        run: npx playwright install chromium
+        working-directory: frontend
+      - name: Browser tests with isolated H2 database
+        run: npm run test:e2e
+        working-directory: frontend
+      - name: Retain failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+            backend/target/surefire-reports
+          retention-days: 7

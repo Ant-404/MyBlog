@@ -102,6 +102,41 @@ class LocalMusicIntegrationTest {
   }
 
   @Test
+  void visibilityOrderingAndVersionsPersistWithoutDeletingFiles() throws Exception {
+    Path folder = ROOT.resolve("ordering");
+    Files.createDirectories(folder);
+    Files.writeString(folder.resolve("a.wav"), "RIFF0000WAVEfmt test");
+    Files.writeString(folder.resolve("b.wav"), "RIFF0000WAVEfmt test");
+    var service =
+        new LocalMusicService(mapper, folder.resolve("managed").toString(), folder.toString());
+    var tracks = service.settings(true).tracks();
+    long a = tracks.get(0).id(), b = tracks.get(1).id();
+    service.reorder(
+        java.util.List.of(
+            new LocalMusicService.TrackVersion(b, 0), new LocalMusicService.TrackVersion(a, 0)));
+    assertThat(service.settings().tracks().getFirst().id()).isEqualTo(b);
+    assertThatThrownBy(() -> service.visibility(b, 0, true))
+        .isInstanceOf(com.myblog.common.exception.ConflictException.class);
+    service.visibility(b, 1, true);
+    assertThat(service.settings().tracks()).hasSize(1);
+    assertThat(service.settings(true).tracks()).hasSize(2);
+    var restarted =
+        new LocalMusicService(mapper, folder.resolve("managed").toString(), folder.toString());
+    assertThat(restarted.settings().tracks()).hasSize(1);
+    restarted.visibility(b, 2, false);
+    restarted.edit(b, "恢复后的歌名", "歌手", 3);
+    assertThat(restarted.settings().tracks().getFirst().title()).isEqualTo("恢复后的歌名");
+    assertThat(Files.exists(folder.resolve("b.wav"))).isTrue();
+    assertThatThrownBy(
+            () ->
+                restarted.reorder(
+                    java.util.List.of(
+                        new LocalMusicService.TrackVersion(a, 1),
+                        new LocalMusicService.TrackVersion(a, 1))))
+        .isInstanceOf(com.myblog.common.exception.InvalidInputException.class);
+  }
+
+  @Test
   void rejectsAnonymousMissingCsrfFakeAudioAndUnknownIds() throws Exception {
     var fake =
         new MockMultipartFile("file", "fake.mp3", "audio/mpeg", "<script>fake</script>".getBytes());

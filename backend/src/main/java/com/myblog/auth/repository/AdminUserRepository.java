@@ -34,6 +34,15 @@ public class AdminUserRepository {
     return jdbc.queryForObject("SELECT COUNT(*) FROM admin_users", Long.class);
   }
 
+  public boolean changePassword(String username, String oldHash, String newHash) {
+    return jdbc.update(
+            "UPDATE admin_users SET password_hash = ? WHERE username = ? AND password_hash = ?",
+            newHash,
+            username,
+            oldHash)
+        == 1;
+  }
+
   public void create(String username, String hash, String displayName) {
     jdbc.update(
         "INSERT INTO admin_users (username, password_hash, display_name) VALUES (?, ?, ?)",

@@ -11,6 +11,8 @@ import MarkdownEditor from '../../components/admin/MarkdownEditor'
 import MediaLibrary from '../../components/admin/MediaLibrary'
 import type { PostInput, AdminPost } from '../../types/adminPost'
 import { readingStats } from '../../utils/postMetadata'
+import { draftKey, readDraft, type LocalDraft } from '../../utils/postDraft'
+import type { AdminUser } from '../../types/auth'
 
 function emptyPost(): PostInput {
   return {
@@ -49,7 +51,7 @@ export default function AdminPostEditorPage() {
   const { id } = useParams()
   const isNew = id === undefined
   const navigate = useNavigate()
-  const { expire } = useOutletContext<{ expire: () => void }>()
+  const { expire, user } = useOutletContext<{ expire: () => void; user: AdminUser }>()
   usePageTitle(isNew ? '新建文章' : '编辑文章')
   const [form, setForm] = useState<PostInput>(emptyPost)
   const [baseline, setBaseline] = useState('')
@@ -61,6 +63,13 @@ export default function AdminPostEditorPage() {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
   const [saved, setSaved] = useState('')
+  const localKey = draftKey(user.username, id)
+  const [recovery, setRecovery] = useState<LocalDraft | null>(null)
+  const [localError, setLocalError] = useState('')
+  const latestForm = useRef(form)
+  latestForm.current = form
+  const [automaticSaving, setAutomaticSaving] = useState(false)
+  const inputLocked = busy && !automaticSaving
   const fetchPost = useCallback(
     () => (isNew ? Promise.resolve(null) : adminPostsApi.detail(Number(id))),
     [isNew, id],
@@ -87,7 +96,24 @@ export default function AdminPostEditorPage() {
     setSaved('')
     setActionError('')
     setAutoPaused(false)
-  }, [data, loading, error])
+    setRecovery(readDraft(localKey))
+  }, [data, loading, error, localKey])
+  useEffect(() => {
+    if (!dirty || recovery || loading || error) return
+    try {
+      localStorage.setItem(localKey, JSON.stringify({ form, savedAt: new Date().toISOString() }))
+      setLocalError('')
+    } catch {
+      setLocalError('浏览器本地备份不可用，请及时手动保存。')
+    }
+  }, [form, dirty, recovery, loading, error, localKey])
+  function clearLocalDraft() {
+    try {
+      localStorage.removeItem(localKey)
+    } catch {
+      /* Storage may be disabled. */
+    }
+  }
   function field<K extends keyof PostInput>(key: K, value: PostInput[K]) {
     setForm((previous) => ({ ...previous, [key]: value }))
     setSaved('')
@@ -124,7 +150,9 @@ export default function AdminPostEditorPage() {
       return
     }
     saving.current = true
+    const submitted = form
     setBusy(true)
+    setAutomaticSaving(automatic)
     setActionError('')
     setSaved('')
     try {
@@ -132,8 +160,11 @@ export default function AdminPostEditorPage() {
         ? await adminPostsApi.create(input)
         : await adminPostsApi.update(Number(id), input)
       const next = fromPost(result)
-      setForm(next)
+      const editedWhileSaving = latestForm.current !== submitted
+      setForm(editedWhileSaving ? { ...latestForm.current, version: next.version } : next)
       setBaseline(JSON.stringify(next))
+      if (!editedWhileSaving) clearLocalDraft()
+      setRecovery(null)
       setAutoPaused(false)
       setSaved(
         automatic
@@ -153,17 +184,31 @@ export default function AdminPostEditorPage() {
     } finally {
       saving.current = false
       setBusy(false)
+      setAutomaticSaving(false)
     }
   }
   const existingDraft =
     !isNew && baseline !== '' && JSON.parse(baseline).status === 'DRAFT' && form.status === 'DRAFT'
   useEffect(() => {
-    if (!autoSave || autoPaused || !existingDraft || !dirty || busy || loading || error) return
+    if (!autoSave || autoPaused || recovery || !existingDraft || !dirty || busy || loading || error)
+      return
     const timer = window.setTimeout(() => {
       if (editorForm.current?.checkValidity()) void save('DRAFT', true)
     }, 3000)
     return () => window.clearTimeout(timer)
-  }, [autoSave, autoPaused, existingDraft, dirty, busy, loading, error, form, baseline, options])
+  }, [
+    autoSave,
+    autoPaused,
+    recovery,
+    existingDraft,
+    dirty,
+    busy,
+    loading,
+    error,
+    form,
+    baseline,
+    options,
+  ])
   const autoMessage = autoPaused
     ? '自动保存已暂停，请处理错误后手动保存。'
     : isNew
@@ -246,6 +291,40 @@ export default function AdminPostEditorPage() {
           </label>
           <span>{autoMessage}</span>
         </div>
+        {localError && (
+          <p className="form-error" role="alert">
+            {localError}
+          </p>
+        )}
+        {recovery && (
+          <div className="card" role="status">
+            <p>
+              发现本机草稿（{new Date(recovery.savedAt).toLocaleString('zh-CN')}
+              ），恢复后请核对内容再保存。
+            </p>
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setForm({ ...recovery.form, version: form.version, status: form.status })
+                setRecovery(null)
+                setAutoPaused(true)
+              }}
+            >
+              恢复本机草稿
+            </button>{' '}
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => {
+                clearLocalDraft()
+                setRecovery(null)
+              }}
+            >
+              放弃本机草稿
+            </button>
+          </div>
+        )}
         <div hidden={!mediaTarget} className="card media-picker">
           <div className="management-heading">
             <h2>选择图片</h2>
@@ -255,7 +334,7 @@ export default function AdminPostEditorPage() {
           </div>
           {mediaTarget && (
             <MediaLibrary
-              disabled={busy}
+              disabled={inputLocked}
               onSelect={(url) => {
                 if (mediaTarget === 'cover') field('cover', url)
                 else field('content', form.content + '\n\n![图片说明](' + url + ')\n')
@@ -282,7 +361,7 @@ export default function AdminPostEditorPage() {
               placeholder="给这篇记录起个名字"
               required
               maxLength={200}
-              disabled={busy}
+              disabled={inputLocked}
             />
             <label htmlFor="post-excerpt">文章摘要</label>
             <textarea
@@ -292,7 +371,7 @@ export default function AdminPostEditorPage() {
               placeholder="简要介绍文章内容，显示在前台卡片中"
               maxLength={500}
               rows={3}
-              disabled={busy}
+              disabled={inputLocked}
             />
             <div className="editor-label-line">
               <label htmlFor="post-content">正文（Markdown）</label>
@@ -303,7 +382,7 @@ export default function AdminPostEditorPage() {
             <button
               type="button"
               className="text-button"
-              disabled={busy}
+              disabled={inputLocked}
               onClick={() => setMediaTarget('content')}
             >
               上传 / 选择正文图片
@@ -311,7 +390,7 @@ export default function AdminPostEditorPage() {
             <MarkdownEditor
               value={form.content}
               onChange={(value) => field('content', value)}
-              disabled={busy}
+              disabled={inputLocked}
             />
           </section>
           <aside className="card editor-settings">
@@ -325,7 +404,7 @@ export default function AdminPostEditorPage() {
               pattern="[a-z0-9]+(-[a-z0-9]+)*"
               required
               maxLength={160}
-              disabled={busy}
+              disabled={inputLocked}
             />
             <small>新文章自动生成唯一地址，也可自定义。修改已有地址会使旧链接失效。</small>
             {optionsError && (
@@ -342,7 +421,7 @@ export default function AdminPostEditorPage() {
               value={form.category}
               onChange={(event) => field('category', event.target.value)}
               required
-              disabled={busy || optionsLoading || !!optionsError}
+              disabled={inputLocked || optionsLoading || !!optionsError}
             >
               <option value="">{optionsLoading ? '正在加载分类…' : '请选择分类'}</option>
               {form.category && !options?.categories.includes(form.category) && (
@@ -368,7 +447,7 @@ export default function AdminPostEditorPage() {
             </small>
             <fieldset
               className="post-tag-options"
-              disabled={busy || optionsLoading || !!optionsError}
+              disabled={inputLocked || optionsLoading || !!optionsError}
             >
               <legend>标签</legend>
               {[...new Set([...(options?.tags || []), ...form.tags])].map((tag) => (
@@ -401,7 +480,7 @@ export default function AdminPostEditorPage() {
               value={form.publishedAt}
               onChange={(event) => field('publishedAt', event.target.value)}
               required
-              disabled={busy}
+              disabled={inputLocked}
             />
             <small>未来日期的文章到当天才会在前台显示。</small>
             <label htmlFor="post-minutes">阅读时长（分钟）</label>
@@ -423,12 +502,12 @@ export default function AdminPostEditorPage() {
               onChange={(event) => field('cover', event.target.value)}
               placeholder="/images/landscape.svg"
               maxLength={500}
-              disabled={busy}
+              disabled={inputLocked}
             />
             <button
               type="button"
               className="text-button"
-              disabled={busy}
+              disabled={inputLocked}
               onClick={() => setMediaTarget('cover')}
             >
               上传 / 选择封面
@@ -439,7 +518,7 @@ export default function AdminPostEditorPage() {
                 type="checkbox"
                 checked={form.pinned}
                 onChange={(event) => field('pinned', event.target.checked)}
-                disabled={busy}
+                disabled={inputLocked}
               />
               置顶文章
             </label>

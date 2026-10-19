@@ -474,6 +474,16 @@
   padding: 24px;
   min-width: 0;
 }
+.security-settings {
+  max-width: 680px;
+}
+.security-settings .management-form {
+  margin-top: 24px;
+  gap: 10px;
+}
+.security-settings .management-form label:not(:first-child) {
+  margin-top: 8px;
+}
 .editor-grid label {
   display: block;
   font-size: 12px;

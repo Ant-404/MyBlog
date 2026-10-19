@@ -36,6 +36,7 @@ const AdminMediaPage = lazy(() => import('../pages/admin/AdminMediaPage'))
 const AdminTaxonomyPage = lazy(() => import('../pages/admin/AdminTaxonomyPage'))
 const AdminFriendsPage = lazy(() => import('../pages/admin/AdminFriendsPage'))
 const AdminSettingsPage = lazy(() => import('../pages/admin/AdminSettingsPage'))
+const AdminSecurityPage = lazy(() => import('../pages/admin/AdminSecurityPage'))
 const AdminCommentsPage = lazy(() => import('../pages/admin/AdminCommentsPage'))
 const AdminStatisticsPage = lazy(() => import('../pages/admin/AdminStatisticsPage'))
 const page = (Component: React.ComponentType) => (
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
       { path: 'series', element: page(AdminSeriesPage) },
       { path: 'moments', element: page(AdminMomentsPage) },
       { path: 'settings', element: page(AdminSettingsPage) },
+      { path: 'security', element: page(AdminSecurityPage) },
       { path: 'comments', element: page(AdminCommentsPage) },
       { path: 'statistics', element: page(AdminStatisticsPage) },
       { path: 'guestbook', element: page(AdminGuestbookPage) },

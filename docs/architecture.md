@@ -50,7 +50,7 @@
 
 `auth` 模块负责账号仓储、BCrypt 校验、初始账号创建和认证接口；`config/SecurityConfig` 负责会话、CSRF 和后端权限边界；`admin` 提供受保护的工作台接口。管理页面使用独立 AdminLayout，不加载前台双侧栏。后端是权限判定的最终依据，前端路由跳转只负责体验。
 
-系统环境变量优先于本地 `.env`；初始化密码仅在管理员表为空时使用。以后修改初始化配置不会覆盖已有数据库密码。所有新管理写入 API 均应置于 `/api/v1/admin/**` 并要求 CSRF header。
+系统环境变量优先于本地 `.env`；初始化密码仅在管理员表为空时使用。以后修改初始化配置不会覆盖已有数据库密码。内容管理写入 API 置于 `/api/v1/admin/**`；账号改密使用同样受 ADMIN 权限及 CSRF 保护的 `/api/v1/auth/password`。改密验证旧密码并通过 SessionRegistry 使旧会话失效。
 
 文章管理沿用 post 模块，新增 AdminPostController / AdminPostService / AdminPostRepository 及独立 DTO。写入使用事务将文章、分类、标签与关联作为一次完整操作；重复 slug 或版本冲突会回滚。V5 添加 version，用 `WHERE id = ? AND version = ?` 做并发检查，写入时递增。前台查询仍保持原公开过滤规则。
 
@@ -72,7 +72,7 @@
 
 `ArticleReadingTools` 根据清理后的标题生成目录、锚点和阅读进度；Markdown 公共工具只加载常用语言的 Highlight.js 语法。相邻文章由后端按发布日期和 ID 查询，仅返回公开文章。
 
-`comment` 模块按文章查询公开评论，默认 PENDING：注册用户的待审评论先公开，匿名待审评论隐藏；APPROVED 公开，REJECTED 隐藏。后台状态修改和删除携带 version。公开判断由 CommentRepository.publiclyVisible 统一提供，列表、计数、回复目标、通知和举报遵循相同规则。提交保留匿名 CSRF、纯文字展示、长度限制、诱捕字段和来源限流；注册用户额外按账号限流。昵称和用户编号由服务端读取，不保存邮箱与来源 IP。限流缓存仅在内存保存来源地址，最多 10000 个窗口，10 分钟后清理。
+`comment` 模块保存访客填写的昵称、邮箱、可选网址和受限 Markdown，提交后立即公开；邮箱不进入公开响应。支持同文章回复，管理员只能查看和按版本删除。历史 status 列保留兼容，不再过滤可见性。CSRF、长度校验、诱捕字段与按来源的内存限流继续保留；会员认证、通知和举报入口已经移除。
 
 `statistics` 将每天的文章计数写入 post_views，HttpSession 维护本日已读文章（最多 1000 项），避免重复刷新计数。计数是近似阅读量，不提供独立访客推断。`feed` 使用 XMLStreamWriter 转义内容，并过滤非法 XML 控制字符，以设置中的 publicUrl 生成 RSS 和站点地图，不信任请求 Host 来生成链接。
 
@@ -82,10 +82,13 @@
 
 2026-10-15（历史 V9 功能）新增 `anime_entries`、`music_settings`、`music_tracks`。后端 `anime`、`music` 模块各自按 controller/service/repository/dto 分层，管理写操作沿用会话、CSRF 和乐观版本校验。图片删除检查也覆盖追番封面和歌单封面。
 
-`QqMusicClient` 只从固定配置的 Meting 服务解析 QQ 公开歌单，限制连接时间、响应大小及歌曲数量；导入失败保留原歌单。歌单和歌曲元数据保存在数据库，公开主页仅作为链接，不代表 QQ 登录授权。
+当前播放器使用 LocalMusicService 管理本地音频，library.json 原子保存元数据、可见性、排序与版本。公开列表过滤移出播放列表的歌曲，后台保留恢复入口；调整顺序时校验完整列表及版本。历史兼容接口中的 `QqMusicClient` 只从固定配置的 Meting 服务解析 QQ 公开歌单，限制连接时间、响应大小及歌曲数量；导入失败保留原歌单。歌单和歌曲元数据保存在数据库，公开主页仅作为链接，不代表 QQ 登录授权。
 
 前端 `AnimePage.tsx`、`AdminAnimePage.tsx`、`AdminMusicPage.tsx` 分别负责独立页面；`MusicPlayer.tsx` 挂载在公共布局中，站内公开页面切换时保留播放，离开公共布局时暂停。详细配置见 [leisure.md](leisure.md)。
 
 ## 扩展边界
 
-目前是小型个人博客：归档一次加载全部公开摘要，搜索使用 LIKE；文章数增长后可将归档分页并引入全文搜索。图片管理显示最近 200 张，RSS 提供最新 50 篇摘要，统计显示前 20 篇排行。管理员写操作全部受会话与 CSRF 保护，匿名写接口仅限评论和阅读计数。多实例部署时需将限流与会话共享至 Redis 等存储，文件存储也可扩展为对象存储。当前没有 SSR、邮件通知、评论回复或独立访客追踪。
+目前是小型个人博客：归档一次加载全部公开摘要，搜索使用 LIKE；文章数增长后可将归档分页并引入全文搜索。图片管理按文件名搜索，每页 50 张，RSS 提供最新 50 篇摘要，统计显示前 20 篇排行。管理员写操作全部受会话与 CSRF 保护，匿名写接口包括评论、评论图片、留言墙和阅读计数。多实例部署时需将限流与会话共享至 Redis 等存储，文件存储也可扩展为对象存储。文章支持客户端 SEO 和可选静态分享信息生成；当前没有完整正文 SSR、邮件通知或独立访客追踪。
+
+
+本机草稿、图片生成、SEO 静态生成与备份脚本的详细边界见 [optimizations.md](optimizations.md)。

@@ -10,15 +10,30 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.*;
+import org.springframework.security.web.session.ConcurrentSessionFilter;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 @Configuration
 public class SecurityConfig {
+  @Bean
+  public SessionRegistry sessionRegistry() {
+    return new SessionRegistryImpl();
+  }
+
+  @Bean
+  public HttpSessionEventPublisher httpSessionEventPublisher() {
+    return new HttpSessionEventPublisher();
+  }
+
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
@@ -47,9 +62,21 @@ public class SecurityConfig {
       HttpSecurity http,
       ObjectMapper mapper,
       SecurityContextRepository contexts,
-      CsrfTokenRepository csrfTokens)
+      CsrfTokenRepository csrfTokens,
+      SessionRegistry sessions)
       throws Exception {
-    http.securityContext(config -> config.securityContextRepository(contexts))
+    http.addFilterBefore(
+            new ConcurrentSessionFilter(
+                sessions,
+                event -> {
+                  event.getResponse().setStatus(401);
+                  event.getResponse().setContentType("application/json;charset=UTF-8");
+                  mapper.writeValue(
+                      event.getResponse().getWriter(),
+                      ApiResponse.failure("UNAUTHORIZED", "密码已修改，请重新登录"));
+                }),
+            AuthorizationFilter.class)
+        .securityContext(config -> config.securityContextRepository(contexts))
         .csrf(
             config ->
                 config
@@ -58,7 +85,7 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             config ->
                 config
-                    .requestMatchers("/api/v1/admin/**", "/api/v1/auth/me")
+                    .requestMatchers("/api/v1/admin/**", "/api/v1/auth/me", "/api/v1/auth/password")
                     .hasRole("ADMIN")
                     .requestMatchers("/api/v1/members/**", "/api/v1/people/**")
                     .denyAll()

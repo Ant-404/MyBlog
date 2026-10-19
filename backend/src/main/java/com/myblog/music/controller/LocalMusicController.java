@@ -20,9 +20,28 @@ public class LocalMusicController {
 
   public record Edit(String title, String artist, int version) {}
 
-  @GetMapping({"/api/v1/music/local", "/api/v1/admin/music/local"})
+  @GetMapping("/api/v1/music/local")
   public ApiResponse<Settings> list() throws IOException {
     return ApiResponse.success(service.settings());
+  }
+
+  @GetMapping("/api/v1/admin/music/local")
+  public ApiResponse<Settings> adminList() throws IOException {
+    return ApiResponse.success(service.settings(true));
+  }
+
+  public record Visibility(int version, boolean hidden) {}
+
+  @PutMapping("/api/v1/admin/music/local/{id}/visibility")
+  public ApiResponse<Settings> visibility(@PathVariable long id, @RequestBody Visibility input)
+      throws IOException {
+    return ApiResponse.success(service.visibility(id, input.version(), input.hidden()));
+  }
+
+  @PutMapping("/api/v1/admin/music/local/order")
+  public ApiResponse<Settings> order(
+      @RequestBody java.util.List<LocalMusicService.TrackVersion> input) throws IOException {
+    return ApiResponse.success(service.reorder(input));
   }
 
   @PostMapping("/api/v1/admin/music/local")

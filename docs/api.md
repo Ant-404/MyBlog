@@ -32,7 +32,7 @@
 
 写入字段：title、slug、excerpt、content、cover、category、tags、publishedAt、readingMinutes、pinned、status、version。status 为 DRAFT/PUBLISHED；title 最长 200；slug 最长 160、格式 `[a-z0-9]+(?:-[a-z0-9]+)*`；excerpt 最长 500；content 最长 200000；cover 最长 500；分类/标签名最长 64，标签最多 12；readingMinutes 1–240；日期 YYYY-MM-DD。后台关键词搜索标题与摘要，分页默认 10 篇、最大 100 篇。
 
-空正文可存草稿，不可发布。未来日期 PUBLISHED 内容在后台可见，在前台隐藏。分类和标签名称可在写文章时创建，标签自动去重。每次编辑或状态操作 version 加 1，旧版本写入或删除返回 409 CONFLICT；重复 slug 同样返回 409。参数或 JSON 格式不合法返回 400。
+空正文可存草稿，不可发布。未来日期 PUBLISHED 内容在后台可见，在前台隐藏。分类和标签必须来自已有选项，标签自动去重；新增选项使用内容组织接口。每次编辑或状态操作 version 加 1，旧版本写入或删除返回 409 CONFLICT；重复 slug 同样返回 409。参数或 JSON 格式不合法返回 400。
 
 ## 成功响应
 
@@ -184,3 +184,12 @@
 `GET /admin/dashboard` 在原 posts/categories/tags 外返回 drafts、scheduled、albums、photos、comments、notes、media、projects、series、anime。posts 仅统计已到发布日期的公开文章，scheduled 单独统计未来文章；分类、标签和其他管理模块包含未公开记录。照片数为相册照片关联数，同一文件加入两册计两次。歌曲来自本地文件库，不使用旧 QQ 歌曲表推算数量。
 
 `GET /admin/media/page?page=1&keyword=文件名` 返回 PageResponse，每页 50 张，按 ID 降序。仅 ADMIN 可用，关键词最大 100 字，page 范围 1–100000。保留旧 `/admin/media` 数组接口兼容调用。后台已统一使用分页接口，上传成功后返回第一页并清除筛选。
+
+
+## 账号安全与本地音乐管理（2026-10-19）
+
+- `POST /auth/password`：JSON `currentPassword`、`newPassword`，需 ADMIN 会话与 CSRF。新密码 12–64 字符且 UTF-8 不超过 72 字节，与旧密码不同；成功返回空 data 并使所有旧会话失效。旧密码错误返回 400，重复失败限流返回 429，版本竞争返回 409。
+- `GET /music/local` 只返回公开歌曲；`GET /admin/music/local` 返回包括移除项的完整列表，新增 hidden、sortOrder。
+- `PUT /admin/music/local/{id}/visibility`：JSON `version`、`hidden`；移出或恢复播放列表，文件保留。隐藏仅影响播放列表，不作为文件访问权限。
+- `PUT /admin/music/local/order`：JSON 数组 `[{id,version},...]`，提交后台完整列表且每项唯一，按数组顺序保存；旧版本返回 409。
+- 本地音乐写接口均需 ADMIN 会话与 CSRF，保存到 library.json，旧格式自动兼容，无需 SQL。

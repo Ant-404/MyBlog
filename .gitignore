@@ -4,6 +4,7 @@
 !.env.example
 frontend/node_modules/
 frontend/dist/
+frontend/public/images/optimized/
 frontend/test-results/
 frontend/playwright-report/
 docs/screenshots/

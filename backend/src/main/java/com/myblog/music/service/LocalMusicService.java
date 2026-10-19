@@ -15,11 +15,21 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class LocalMusicService {
   public record Track(
-      long id, String title, String artist, String audioUrl, String cover, int version) {}
+      long id,
+      String title,
+      String artist,
+      String audioUrl,
+      String cover,
+      int version,
+      boolean hidden,
+      int sortOrder) {}
 
   public record Settings(String name, boolean enabled, List<Track> tracks) {}
 
-  public record Metadata(String title, String artist, String cover, int version) {}
+  public record Metadata(
+      String title, String artist, String cover, int version, boolean hidden, int sortOrder) {}
+
+  public record TrackVersion(long id, int version) {}
 
   private record Entry(String key, Path path) {}
 
@@ -127,6 +137,8 @@ public class LocalMusicService {
         split < 0 ? name : name.substring(split + 3),
         split < 0 ? "" : name.substring(0, split),
         "",
+        0,
+        false,
         0);
   }
 
@@ -167,10 +179,15 @@ public class LocalMusicService {
   }
 
   public synchronized Settings settings() throws IOException {
+    return settings(false);
+  }
+
+  public synchronized Settings settings(boolean includeHidden) throws IOException {
     Map<String, Metadata> values = metadata();
     List<Track> tracks = new ArrayList<>();
     for (Entry entry : entries()) {
       Metadata meta = values.getOrDefault(entry.key(), defaults(entry));
+      if (meta.hidden() && !includeHidden) continue;
       long id = id(entry);
       tracks.add(
           new Track(
@@ -181,8 +198,11 @@ public class LocalMusicService {
               cover(entry, meta) == null
                   ? ""
                   : "/api/v1/music/local/" + id + "/cover?v=" + meta.version(),
-              meta.version()));
+              meta.version(),
+              meta.hidden(),
+              meta.sortOrder()));
     }
+    tracks.sort(Comparator.comparingInt(Track::sortOrder));
     return new Settings("耳边的小世界", true, tracks);
   }
 
@@ -192,7 +212,7 @@ public class LocalMusicService {
         || title.length() > 120
         || artist == null
         || artist.length() > 120) throw new InvalidInputException("歌名必填，歌名和歌手不能超过 120 字");
-    return new Metadata(title.strip(), artist.strip(), cover, version);
+    return new Metadata(title.strip(), artist.strip(), cover, version, false, 0);
   }
 
   public synchronized Settings edit(long id, String title, String artist, int version)
@@ -202,9 +222,57 @@ public class LocalMusicService {
     Metadata old = values.getOrDefault(entry.key(), defaults(entry));
     if (version != old.version())
       throw new com.myblog.common.exception.ConflictException("歌曲已更新，请刷新后重试");
-    values.put(entry.key(), validated(title, artist, old.cover(), version + 1));
+    Metadata edited = validated(title, artist, old.cover(), version + 1);
+    values.put(
+        entry.key(),
+        new Metadata(
+            edited.title(),
+            edited.artist(),
+            old.cover(),
+            version + 1,
+            old.hidden(),
+            old.sortOrder()));
     persist(values);
-    return settings();
+    return settings(true);
+  }
+
+  public synchronized Settings visibility(long id, int version, boolean hidden) throws IOException {
+    Entry entry = find(id);
+    Map<String, Metadata> values = metadata();
+    Metadata old = values.getOrDefault(entry.key(), defaults(entry));
+    if (old.version() != version)
+      throw new com.myblog.common.exception.ConflictException("歌曲已更新，请刷新后重试");
+    values.put(
+        entry.key(),
+        new Metadata(old.title(), old.artist(), old.cover(), version + 1, hidden, old.sortOrder()));
+    persist(values);
+    return settings(true);
+  }
+
+  public synchronized Settings reorder(List<TrackVersion> requested) throws IOException {
+    List<Entry> current = entries();
+    if (requested == null
+        || requested.size() != current.size()
+        || requested.size() > 10000
+        || requested.stream().anyMatch(Objects::isNull)
+        || requested.stream().map(TrackVersion::id).distinct().count() != current.size())
+      throw new InvalidInputException("请提交完整且不重复的歌曲列表");
+    Map<String, Metadata> values = metadata();
+    Map<Long, Entry> byId = new HashMap<>();
+    current.forEach(e -> byId.put(id(e), e));
+    for (int i = 0; i < requested.size(); i++) {
+      TrackVersion item = requested.get(i);
+      Entry entry = byId.get(item.id());
+      if (entry == null) throw new com.myblog.common.exception.ConflictException("音乐库已变化，请刷新后重试");
+      Metadata old = values.getOrDefault(entry.key(), defaults(entry));
+      if (item.version() != old.version())
+        throw new com.myblog.common.exception.ConflictException("歌曲已更新，请刷新后重试");
+      values.put(
+          entry.key(),
+          new Metadata(old.title(), old.artist(), old.cover(), old.version() + 1, old.hidden(), i));
+    }
+    persist(values);
+    return settings(true);
   }
 
   private boolean audioHeader(byte[] b, String ext) {
@@ -254,7 +322,7 @@ public class LocalMusicService {
       Files.deleteIfExists(target);
       throw e;
     }
-    return settings();
+    return settings(true);
   }
 
   public synchronized Settings uploadCover(long id, int version, MultipartFile file)
@@ -290,7 +358,13 @@ public class LocalMusicService {
       if (!ImageIO.write(image, "png", target.toFile())) throw new IOException("无法保存封面");
       values.put(
           entry.key(),
-          new Metadata(old.title(), old.artist(), target.getFileName().toString(), version + 1));
+          new Metadata(
+              old.title(),
+              old.artist(),
+              target.getFileName().toString(),
+              version + 1,
+              old.hidden(),
+              old.sortOrder()));
       persist(values);
     } catch (IOException | RuntimeException e) {
       Files.deleteIfExists(target);
@@ -298,7 +372,7 @@ public class LocalMusicService {
     }
     if (!old.cover().isBlank() && old.cover().matches("[a-f0-9-]{36}\\.png"))
       Files.deleteIfExists(directory.resolve(old.cover()));
-    return settings();
+    return settings(true);
   }
 
   public synchronized Path resource(long id, boolean image) throws IOException {

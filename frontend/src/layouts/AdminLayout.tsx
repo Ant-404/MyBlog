@@ -141,6 +141,10 @@ export default function AdminLayout() {
               <Settings size={18} />
               站点设置
             </NavLink>
+            <NavLink to="/admin/security">
+              <Settings size={18} />
+              账号安全
+            </NavLink>
           </div>
         </nav>
         <Link className="admin-public-link" to="/">
@@ -160,6 +164,7 @@ export default function AdminLayout() {
                 taxonomy: '内容组织',
                 friends: '友链管理',
                 settings: '站点设置',
+                security: '账号安全',
                 comments: '评论管理',
                 statistics: '阅读统计',
                 anime: '追番管理',

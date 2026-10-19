@@ -5,6 +5,8 @@ export interface MusicTrack {
   audioUrl: string
   cover: string
   version?: number
+  hidden?: boolean
+  sortOrder?: number
 }
 export interface MusicSettings {
   name: string

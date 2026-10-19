@@ -17,7 +17,11 @@ export default function PostDetailPage() {
   const { slug = '' } = useParams()
   const fetchPost = useCallback(() => blogApi.post(slug), [slug])
   const { data: post, loading, error, refresh } = useAsyncData(fetchPost)
-  usePageTitle(post?.title || '文章')
+  usePageTitle(post?.title || '文章', {
+    description: post?.excerpt,
+    image: post?.cover,
+    article: true,
+  })
   const html = useMemo(() => renderMarkdown(post?.content || ''), [post?.content])
   return (
     <DataState loading={loading} error={error} onRetry={refresh}>

@@ -8,9 +8,13 @@ import ContentPagination from '../common/ContentPagination'
 
 export default function MediaLibrary({
   onSelect,
+  onSelectMany,
+  maxSelection = 200,
   disabled = false,
 }: {
   onSelect?: (url: string) => void
+  onSelectMany?: (urls: string[]) => void
+  maxSelection?: number
   disabled?: boolean
 }) {
   const [page, setPage] = useState(1)
@@ -29,6 +33,55 @@ export default function MediaLibrary({
   const [success, setSuccess] = useState('')
   const [uploadingName, setUploadingName] = useState('')
   const [uploadPhase, setUploadPhase] = useState('')
+  const [selected, setSelected] = useState<string[]>([])
+  const [failedFiles, setFailedFiles] = useState<File[]>([])
+  const [completed, setCompleted] = useState(0)
+  const [uploadTotal, setUploadTotal] = useState(0)
+  async function uploadFiles(files: File[]) {
+    if (busy || disabled || !files.length) return
+    setBusy(true)
+    setMessage('')
+    setSuccess('')
+    setCompleted(0)
+    setUploadTotal(files.length)
+    const failures: File[] = []
+    let uploadedCount = 0
+    const uploadedNames: string[] = []
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index]
+      setUploadingName(file.name)
+      setUploadPhase('正在准备')
+      try {
+        const uploaded = await mediaApi.upload(file, (phase) =>
+          setUploadPhase(phase === 'converting' ? '正在转换图片格式' : '正在上传'),
+        )
+        uploadedNames.push(uploaded.originalName)
+        uploadedCount++
+      } catch (cause) {
+        failures.push(file)
+        if (cause instanceof HttpError && cause.status === 401) {
+          failures.push(...files.slice(index + 1))
+          expire()
+          break
+        }
+        setMessage(cause instanceof Error ? cause.message : '上传失败')
+      } finally {
+        setCompleted(index + 1)
+      }
+    }
+    setFailedFiles(failures)
+    setSuccess(
+      uploadedCount
+        ? `已上传 ${uploadedCount} 张（${uploadedNames.join('、')}），失败 ${failures.length} 张。${onSelect || onSelectMany ? '请从下方选择图片，再保存当前页面。' : ''}`
+        : '',
+    )
+    setPage(1)
+    setKeyword('')
+    setSearch('')
+    setUploadingName('')
+    setBusy(false)
+    refresh()
+  }
   useEffect(() => {
     if (errorStatus === 401) expire()
   }, [errorStatus, expire])
@@ -58,30 +111,14 @@ export default function MediaLibrary({
         <input
           aria-label="上传图片"
           type="file"
+          multiple
           accept="image/*,.avif,.heic,.heif"
           disabled={busy || disabled}
           onChange={(event) => {
             const input = event.currentTarget
-            const file = input.files?.[0]
-            if (!file) return
-            setUploadingName(file.name)
-            setUploadPhase('正在准备')
-            void action(
-              async () => {
-                const uploaded = await mediaApi.upload(file, (phase) =>
-                  setUploadPhase(phase === 'converting' ? '正在转换图片格式' : '正在上传'),
-                )
-                setPage(1)
-                setKeyword('')
-                setSearch('')
-                return uploaded
-              },
-              (uploaded) =>
-                `已上传“${uploaded.originalName}”${uploaded.originalName !== file.name ? '（已自动转换或修正格式）' : ''}，图片已加入下方列表。${onSelect ? '请点击对应图片的“选择图片”，再保存当前页面。' : ''}`,
-            ).finally(() => {
-              input.value = ''
-              setUploadingName('')
-            })
+            const files = Array.from(input.files || [])
+            input.value = ''
+            void uploadFiles(files)
           }}
         />
       </label>
@@ -93,7 +130,52 @@ export default function MediaLibrary({
         每页 50 张，可搜索名称或翻页查找旧图片。正在被文章、相册或站点设置等内容引用的图片不能删除。
       </p>
       {busy && (
-        <p role="status">{uploadingName ? `${uploadPhase}“${uploadingName}”…` : '正在处理…'}</p>
+        <div role="status">
+          <p>
+            {uploadingName
+              ? `${uploadPhase}“${uploadingName}”…（${completed}/${uploadTotal}）`
+              : '正在处理…'}
+          </p>
+          {uploadingName && (
+            <progress value={completed} max={uploadTotal} aria-label="批量上传进度" />
+          )}
+        </div>
+      )}
+      {!!failedFiles.length && (
+        <button
+          type="button"
+          className="button secondary"
+          disabled={busy || disabled}
+          onClick={() => void uploadFiles(failedFiles)}
+        >
+          重试失败的 {failedFiles.length} 张图片
+        </button>
+      )}
+      {onSelectMany && (
+        <div className="media-search-toolbar">
+          <span>
+            已选 {selected.length} / {maxSelection} 张（可跨页选择）
+          </span>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy || disabled || !selected.length}
+            onClick={() => {
+              onSelectMany(selected)
+              setSelected([])
+            }}
+          >
+            添加选中的图片
+          </button>
+          <button
+            type="button"
+            className="text-button"
+            disabled={busy || disabled || !selected.length}
+            onClick={() => setSelected([])}
+          >
+            清空选择
+          </button>
+        </div>
       )}
       {success && (
         <p className="form-success" role="status">
@@ -158,6 +240,28 @@ export default function MediaLibrary({
               <strong>{file.originalName}</strong>
               <small>{Math.ceil(file.sizeBytes / 1024)} KB</small>
               <div>
+                {onSelectMany && (
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      aria-label={`选择 ${file.originalName}`}
+                      checked={selected.includes(file.url)}
+                      disabled={
+                        busy ||
+                        disabled ||
+                        (!selected.includes(file.url) && selected.length >= maxSelection)
+                      }
+                      onChange={(event) =>
+                        setSelected((current) =>
+                          event.target.checked
+                            ? [...current, file.url]
+                            : current.filter((url) => url !== file.url),
+                        )
+                      }
+                    />
+                    多选
+                  </label>
+                )}
                 {onSelect ? (
                   <button
                     type="button"
@@ -187,7 +291,10 @@ export default function MediaLibrary({
                   disabled={busy || disabled}
                   onClick={() => {
                     if (window.confirm(`删除图片“${file.originalName}”？此操作无法撤销。`))
-                      void action(() => mediaApi.remove(file.id))
+                      void action(async () => {
+                        await mediaApi.remove(file.id)
+                        setSelected((current) => current.filter((url) => url !== file.url))
+                      })
                   }}
                 >
                   删除图片

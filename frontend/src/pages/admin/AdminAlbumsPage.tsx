@@ -243,6 +243,21 @@ export default function AdminAlbumsPage() {
           </button>
           <MediaLibrary
             disabled={busy || (picker === 'photos' && form.photos.length >= 200)}
+            maxSelection={200 - form.photos.length}
+            onSelectMany={
+              picker === 'photos'
+                ? (urls) =>
+                    setForm((current) => ({
+                      ...current,
+                      photos: [
+                        ...current.photos,
+                        ...urls
+                          .filter((url) => !current.photos.some((photo) => photo.url === url))
+                          .map((url) => ({ url, caption: '' })),
+                      ].slice(0, 200),
+                    }))
+                : undefined
+            }
             onSelect={(url) => {
               if (picker === 'cover') {
                 setForm({ ...form, cover: url })

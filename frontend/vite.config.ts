@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Plugin } from 'vite'
 import { localMusic } from './build/localMusic'
@@ -42,6 +42,17 @@ function publicImages(name: string, folder: string, pattern: RegExp): Plugin {
 
 export default defineConfig({
   plugins: [
+    {
+      name: 'responsive-images',
+      resolveId(id) {
+        if (id === 'virtual:responsive-images') return '\0virtual:responsive-images'
+      },
+      load(id) {
+        if (id !== '\0virtual:responsive-images') return
+        const path = resolve('public/images/optimized/manifest.json')
+        return `export default ${existsSync(path) ? readFileSync(path, 'utf8') : '{}'}`
+      },
+    },
     react(),
     publicImages('home', 'images', /^home\d*\.(jpe?g|png|webp|avif)$/i),
     publicImages('user', 'images/user', /\.(jpe?g|png|webp|avif|gif)$/i),

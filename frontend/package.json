@@ -9,7 +9,11 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
     "format": "prettier --write src tests build vite.config.ts playwright.config.ts",
-    "format:check": "prettier --check src tests build vite.config.ts playwright.config.ts"
+    "format:check": "prettier --check src tests build vite.config.ts playwright.config.ts",
+    "images:optimize": "node build/optimize-images.mjs",
+    "predev": "npm run images:optimize",
+    "prebuild": "npm run images:optimize",
+    "build:prerender": "npm run build && node build/prerender.mjs"
   },
   "dependencies": {
     "dompurify": "^3.2.4",
@@ -27,6 +31,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
     "typescript": "~5.7.3",
     "vite": "^6.1.0"
   }

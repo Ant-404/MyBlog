@@ -29,6 +29,14 @@ export const musicApi = {
   save: (id: number, title: string, artist: string, version: number) =>
     mutate<MusicSettings>(`/admin/music/local/${id}`, 'PUT', { title, artist, version }),
   upload: (file: File) => upload('/admin/music/local', file),
+  visibility: (id: number, version: number, hidden: boolean) =>
+    mutate<MusicSettings>(`/admin/music/local/${id}/visibility`, 'PUT', { version, hidden }),
+  reorder: (tracks: { id: number; version?: number }[]) =>
+    mutate<MusicSettings>(
+      '/admin/music/local/order',
+      'PUT',
+      tracks.map((track) => ({ id: track.id, version: track.version || 0 })),
+    ),
   cover: async (id: number, version: number, file: File) =>
     upload(
       `/admin/music/local/${id}/cover?version=${version}`,
