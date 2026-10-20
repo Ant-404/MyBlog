@@ -139,7 +139,7 @@ npm run dev
 
 生产部署支持同一份代码选择 `prod-windows` 或 `prod-linux`，分别读取 `.env.prod-windows` / `.env.prod-linux`，不会混用本地开发 `.env`。Windows 使用 `./backend/scripts/Start-Backend.ps1 -Packaged -Environment prod-windows`，Linux 使用 `sh backend/scripts/start-backend.sh`。首次部署先复制对应的 `.example` 并配置凭据，完整步骤与 systemd 示例见 [部署说明](docs/deployment.md)。
 
-后台已按内容、互动和站点分组，工作台补齐草稿、相册与留言概况，图片库支持搜索与分页。功能评估和仍建议补充的能力见 [后台检查记录](docs/admin-review-2026-10-17.md)。
+后台已按内容、互动和站点分组，工作台补齐草稿、相册与留言概况，图片库支持搜索与分页。草稿恢复、改密、备份和批量操作见 [优化与使用说明](docs/optimizations.md)。
 
 ```powershell
 cd D:\MyBlog\frontend
@@ -180,7 +180,7 @@ npm run test:e2e
 
 V5 迁移增加文章版本字段，避免多个编辑窗口互相覆盖。出现 409 冲突时保留当前输入，请先复制需要保留的文字，再重新加载最新版本。离开未保存页面时会提醒。编辑器提供 Markdown 实时预览与已有草稿自动保存，使用方法见下文。
 
-数据库更新时手动执行唯一 SQL 文件，再重新运行 MyBlogApplication。完成情况见 [`docs/roadmap.md`](docs/roadmap.md)。
+数据库更新时手动执行唯一 SQL 文件，再重新运行 MyBlogApplication。部署与升级步骤见 [部署说明](docs/deployment.md)。
 
 ## Markdown 编辑器（第三步已完成）
 
