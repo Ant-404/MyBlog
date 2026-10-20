@@ -1,7 +1,17 @@
-# Shared by backup and restore; process settings take precedence over backend/.env.
+# Shared by backup and restore; process settings take precedence over the selected file.
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $siteSettings = @{}
-$envFile = Join-Path $repoRoot 'backend/.env'
+$envName = if ($Environment -in @('prod-windows', 'prod-linux')) { ".env.$Environment" } else { '.env' }
+$envFile = Join-Path $repoRoot "backend/$envName"
+$defaultUploads = Join-Path $repoRoot 'uploads'
+$defaultSourceMusic = Join-Path $repoRoot 'frontend/public/music'
+if ($Environment -eq 'prod-windows') {
+    $defaultUploads = 'D:/MyBlog/uploads'
+    $defaultSourceMusic = 'D:/MyBlog/frontend/public/music'
+} elseif ($Environment -eq 'prod-linux') {
+    $defaultUploads = '/srv/myblog/uploads'
+    $defaultSourceMusic = '/srv/myblog/frontend/public/music'
+}
 if (Test-Path -LiteralPath $envFile) {
     foreach ($line in Get-Content -LiteralPath $envFile -Encoding utf8) {
         if ($line -match '^\s*([A-Z][A-Z0-9_]*)\s*=(.*)$') { $siteSettings[$Matches[1]] = $Matches[2].Trim() }

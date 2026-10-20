@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory)][string]$Destination,
-    [switch]$ApplicationStopped
+    [switch]$ApplicationStopped,
+    [ValidateSet('development', 'prod-windows', 'prod-linux')]
+    [string]$Environment = 'development'
 )
 $ErrorActionPreference = 'Stop'
 if (-not $ApplicationStopped) { throw '先停止后端，再传入 -ApplicationStopped，以保证数据库和文件一致。' }
@@ -8,9 +10,9 @@ if (-not $ApplicationStopped) { throw '先停止后端，再传入 -ApplicationS
 $backupRoot = [IO.Path]::GetFullPath($Destination)
 if (Test-Path -LiteralPath $backupRoot) { throw '备份目标必须是尚不存在的新目录。' }
 $folders = [ordered]@{
-    uploads = (Get-SiteSetting 'UPLOAD_DIRECTORY' (Join-Path $repoRoot 'uploads'))
-    music = (Get-SiteSetting 'MUSIC_DIRECTORY' (Join-Path (Get-SiteSetting 'UPLOAD_DIRECTORY' (Join-Path $repoRoot 'uploads')) 'music'))
-    sourceMusic = (Get-SiteSetting 'MUSIC_SOURCE_DIRECTORY' (Join-Path $repoRoot 'frontend/public/music'))
+    uploads = (Get-SiteSetting 'UPLOAD_DIRECTORY' $defaultUploads)
+    music = (Get-SiteSetting 'MUSIC_DIRECTORY' (Join-Path (Get-SiteSetting 'UPLOAD_DIRECTORY' $defaultUploads) 'music'))
+    sourceMusic = (Get-SiteSetting 'MUSIC_SOURCE_DIRECTORY' $defaultSourceMusic)
     publicImages = (Join-Path $repoRoot 'frontend/public/images')
 }
 foreach ($folder in $folders.Values) {

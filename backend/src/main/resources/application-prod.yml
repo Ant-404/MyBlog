@@ -1,0 +1,8 @@
+# Common settings for both production profiles; use HTTPS through a trusted proxy.
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:native}
+  servlet:
+    session:
+      cookie:
+        secure: ${SESSION_COOKIE_SECURE:true}

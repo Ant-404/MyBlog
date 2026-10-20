@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!.env.prod-windows.example
+!.env.prod-linux.example
 frontend/node_modules/
 frontend/dist/
 frontend/public/images/optimized/

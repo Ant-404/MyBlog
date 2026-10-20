@@ -3,7 +3,9 @@ param(
     [string]$TargetDatabase,
     [string]$Destination,
     [switch]$Apply,
-    [switch]$ApplicationStopped
+    [switch]$ApplicationStopped,
+    [ValidateSet('development', 'prod-windows', 'prod-linux')]
+    [string]$Environment = 'development'
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/Site-BackupCommon.ps1"
@@ -14,6 +16,8 @@ if ($manifest.format -ne 1 -or -not $manifest.files.Count -or @($manifest.files 
 $allowedFolders = @('uploads', 'music', 'sourceMusic', 'publicImages')
 if (@($manifest.folders | Where-Object { $_ -notin $allowedFolders }).Count) { throw '未知备份目录。' }
 foreach ($file in $manifest.files) {
+    # Accept manifests from older Windows backups on Linux as well.
+    $file.path = $file.path.Replace('\', '/')
     if ($file.path -ne 'database.sql' -and $file.path -notmatch '^(uploads|music|sourceMusic|publicImages)/') { throw '备份文件路径无效。' }
     $target = [IO.Path]::GetFullPath((Join-Path $backupRoot $file.path))
     if (-not $target.StartsWith($backupRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw '备份包含越界路径。' }

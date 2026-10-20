@@ -1,0 +1,10 @@
+spring:
+  config:
+    import:
+      - optional:file:./backend/.env.prod-linux[.properties]
+      - optional:file:./.env.prod-linux[.properties]
+blog:
+  media:
+    directory: ${UPLOAD_DIRECTORY:/srv/myblog/uploads}
+  music:
+    source-directory: ${MUSIC_SOURCE_DIRECTORY:/srv/myblog/frontend/public/music}

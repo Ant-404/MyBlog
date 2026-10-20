@@ -1,0 +1,10 @@
+spring:
+  config:
+    import:
+      - optional:file:./backend/.env.prod-windows[.properties]
+      - optional:file:./.env.prod-windows[.properties]
+blog:
+  media:
+    directory: ${UPLOAD_DIRECTORY:D:/MyBlog/uploads}
+  music:
+    source-directory: ${MUSIC_SOURCE_DIRECTORY:D:/MyBlog/frontend/public/music}

@@ -17,6 +17,12 @@ try {
     $env:MUSIC_SOURCE_DIRECTORY = "$testRoot/source"
     & "$PSScriptRoot/Backup-Site.ps1" -Destination "$testRoot/backup" -ApplicationStopped
     & "$PSScriptRoot/Restore-Site.ps1" -Backup "$testRoot/backup"
+    $manifestPath = "$testRoot/backup/manifest.json"
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if (@($manifest.files | Where-Object { $_.path.Contains('\') }).Count) { throw '新备份清单必须统一使用正斜杠。' }
+    foreach ($file in $manifest.files) { $file.path = $file.path.Replace('/', '\') }
+    $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+    & "$PSScriptRoot/Restore-Site.ps1" -Backup "$testRoot/backup"
     [IO.File]::AppendAllText("$testRoot/backup/music/library.json", 'tampered')
     $rejected = $false
     try { & "$PSScriptRoot/Restore-Site.ps1" -Backup "$testRoot/backup" } catch { $rejected = $true }

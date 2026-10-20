@@ -137,6 +137,8 @@ npm run dev
 
 ## 验证与构建
 
+生产部署支持同一份代码选择 `prod-windows` 或 `prod-linux`，分别读取 `.env.prod-windows` / `.env.prod-linux`，不会混用本地开发 `.env`。Windows 使用 `./backend/scripts/Start-Backend.ps1 -Packaged -Environment prod-windows`，Linux 使用 `sh backend/scripts/start-backend.sh`。首次部署先复制对应的 `.example` 并配置凭据，完整步骤与 systemd 示例见 [部署说明](docs/deployment.md)。
+
 后台已按内容、互动和站点分组，工作台补齐草稿、相册与留言概况，图片库支持搜索与分页。功能评估和仍建议补充的能力见 [后台检查记录](docs/admin-review-2026-10-17.md)。
 
 ```powershell

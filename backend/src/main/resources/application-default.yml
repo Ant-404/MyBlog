@@ -1,0 +1,6 @@
+# Local development only. Production profiles never import the development .env.
+spring:
+  config:
+    import:
+      - optional:file:./backend/.env[.properties]
+      - optional:file:./.env[.properties]

@@ -1,0 +1,16 @@
+[Unit]
+Description=MyBlog backend
+After=network.target
+
+[Service]
+Type=simple
+User=myblog
+Group=myblog
+WorkingDirectory=/srv/myblog/backend
+ExecStart=/usr/bin/java -jar /srv/myblog/backend/target/myblog-backend-0.1.0.jar --spring.profiles.active=prod-linux
+Restart=on-failure
+RestartSec=5
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -9,10 +9,10 @@ server:
         same-site: lax
         secure: ${SESSION_COOKIE_SECURE:false}
 spring:
-  config:
-    import:
-      - optional:file:./backend/.env[.properties]
-      - optional:file:./.env[.properties]
+  profiles:
+    group:
+      prod-windows: prod
+      prod-linux: prod
   application:
     name: myblog-backend
   servlet:
